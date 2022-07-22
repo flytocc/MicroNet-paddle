@@ -99,7 +99,7 @@ class ChannelShuffle(nn.Layer):
         # reshape
         x = x.reshape([b, self.groups, channels_per_group, h, w])
         x = x.transpose([0, 2, 1, 3, 4])
-        out = x.reshape([b, -1, h, w])
+        out = x.reshape([b, c, h, w])
 
         return out
 
@@ -210,7 +210,7 @@ class DYShiftMax(nn.Layer):
         indexgs = paddle.concat((indexgs[1], indexgs[0]), axis=1)
         indexs = paddle.split(indexgs, [1, self.gc - 1], axis=2)
         indexs = paddle.concat((indexs[1], indexs[0]), axis=2)
-        self.index = indexs.reshape([-1]).astype(paddle.int64)
+        self.index = indexs.reshape([inp]).astype(paddle.int64)
         self.expansion = expansion
 
     def forward(self, x):
@@ -223,7 +223,7 @@ class DYShiftMax(nn.Layer):
         y = (y - 0.5) * self.act_max
 
         n2, c2, h2, w2 = x_out.shape
-        x2 = x_out[paddle.arange(b).unsqueeze(1), self.index]
+        x2 = x_out[paddle.arange(n2).unsqueeze(1), self.index]
 
         if self.exp == 4:
             a1, b1, a2, b2 = paddle.split(y, 4, axis=1)

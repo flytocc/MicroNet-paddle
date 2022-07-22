@@ -1,4 +1,4 @@
-# PeleeNet: An efficient DenseNet architecture for mobile devices
+# MicroNet: Improving Image Recognition with Extremely Low FLOPs
 
 ## 目录
 
@@ -19,15 +19,13 @@
 
 ## 1. 简介
 
-这是一个PaddlePaddle实现的PeleeNet。
+这是一个PaddlePaddle实现的 MicroNet 。
 
-PeleeNet是一个高效的卷积神经网络（CNN）架构，由传统的卷积法构建。与其他高效架构相比，PeleeNet有很大的速度优势，可以应用于图像分类及其它的计算机视觉任务。
+**论文:** [MicroNet: Improving Image Recognition with Extremely Low FLOPs](https://arxiv.org/abs/2108.05894)
 
-**论文:** [PeleeNet: An efficient DenseNet architecture for mobile devices](https://arxiv.org/pdf/1804.06882.pdf)
+**参考repo:** [micronet](https://github.com/liyunsheng13/micronet)
 
-**参考repo:** [PeleeNet](https://github.com/Robert-JunWang/PeleeNet)
-
-在此非常感谢`Robert-JunWang`贡献的[PeleeNet](https://github.com/Robert-JunWang/PeleeNet)，提高了本repo复现论文的效率。
+在此非常感谢`liyunsheng13`、`PINTO0309`和`notplus`贡献的[micronet](https://github.com/liyunsheng13/micronet)，提高了本repo复现论文的效率。
 
 
 ## 2. 数据集和复现精度
@@ -52,12 +50,11 @@ PeleeNet是一个高效的卷积神经网络（CNN）架构，由传统的卷积
 
 您可以从[ImageNet 官网](https://image-net.org/)申请下载数据。
 
-| 模型      | epochs | top1 acc (参考精度) | top1 acc (复现精度) | 权重 \| 训练日志 |
-|:--------:|:------:|:--------------------------------------:|:-----:|:-----------------------------:|
-| PeleeNet | 120    | - \| 0.713 (official repo) | 0.713 | 120epochs-pretrain_(checkpoint-latest.pd \| log.txt) |
-| PeleeNet | 120+20 | 0.726 (paper) \| 0.716 (official repo) | 0.716 | 20epochs-finetune_(checkpoint-best.pd \| 20epochs-finetune_log.txt) |
+| 模型         | epochs | top1 acc (参考精度) | (复现精度) | 权重                  \| 训练日志 |
+|:-----------:|:------:|:------------------:|:---------:|:-------------------------------:|
+| micronet_m0 | 600    | 46.6               | 46.6      | checkpoint-latest.pd \| log.txt |
 
-权重及训练日志下载地址：[百度网盘](https://pan.baidu.com/s/1T0-PK7MG48qQQMwZDT5bEg?pwd=vg37)
+权重及训练日志下载地址：[百度网盘](https://pan.baidu.com/s/1v4_VEQU_vyHF9j70ipCiDA?pwd=k1pa)
 
 ## 3. 准备数据与环境
 
@@ -66,18 +63,17 @@ PeleeNet是一个高效的卷积神经网络（CNN）架构，由传统的卷积
 
 硬件和框架版本等环境的要求如下：
 
-- 硬件：4 * RTX3090
+- 硬件：4 * V100
 - 框架：
-  - PaddlePaddle >= 2.2.0
+  - PaddlePaddle >= 2.3.1
 
 * 安装paddlepaddle
 
 ```bash
-# 需要安装2.2及以上版本的Paddle，如果
 # 安装GPU版本的Paddle
-pip install paddlepaddle-gpu==2.2.0
+pip install paddlepaddle-gpu==2.3.1
 # 安装CPU版本的Paddle
-pip install paddlepaddle==2.2.0
+pip install paddlepaddle==2.3.1
 ```
 
 更多安装方法可以参考：[Paddle安装指南](https://www.paddlepaddle.org.cn/)。
@@ -85,8 +81,8 @@ pip install paddlepaddle==2.2.0
 * 下载代码
 
 ```bash
-git clone https://github.com/flytocc/PeleeNet-paddle.git
-cd PeleeNet-paddle
+git clone https://github.com/flytocc/MicroNet_paddle.git
+cd MicroNet_paddle
 ```
 
 * 安装requirements
@@ -107,46 +103,21 @@ pip install -r requirements.txt
 
 * 单机多卡训练
 
-pretrain
-
 ```shell
-export CUDA_VISIBLE_DEVICES=0,1
-python -m paddle.distributed.launch --gpus="0,1" \
+export CUDA_VISIBLE_DEVICES=0,1,2,3
+python -m paddle.distributed.launch --gpus="0,1,2,3" \
     main.py \
-    --model peleenet \
-    --batch_size 256 \
+    --model micronet_m0 \
+    --batch_size 512 \
     --aa '' --smoothing 0 --train_interpolation 'bilinear' --reprob 0 \
     --mixup 0 --cutmix 0 \
-    --opt momentum --weight_decay 1e-4 --min_lr 0 --warmup_epochs 0 \
-    --lr 0.18 --epochs 120 \
+    --opt momentum --weight_decay 3e-5 --min_lr 0 --warmup_epochs 0 \
+    --lr 0.2 --epochs 600 \
     --data_path /path/to/imagenet/ \
     --cls_label_path_train /path/to/train_list.txt \
     --cls_label_path_val /path/to/val_list.txt \
-    --output_dir output/peleenet_pt/ \
+    --output_dir output/micronet_m0/ \
     --dist_eval
-```
-
-ps: 如果未指定`cls_label_path_train`/`cls_label_path_val`，会读取`data_path`下train/val里的图片作为train-set/val-set。
-
-
-fintune
-
-```shell
-export CUDA_VISIBLE_DEVICES=0,1
-python -m paddle.distributed.launch --gpus="0,1" \
-    main.py \
-    --model peleenet \
-    --batch_size 256 \
-    --aa '' --smoothing 0 --train_interpolation 'bilinear' --reprob 0 \
-    --mixup 0 --cutmix 0 \
-    --opt momentum --weight_decay 1e-4 --min_lr 0 --warmup_epochs 0 \
-    --lr 0.005 --epochs 20 \
-    --data_path /path/to/imagenet/ \
-    --cls_label_path_train /path/to/train_list.txt \
-    --cls_label_path_val /path/to/val_list.txt \
-    --output_dir output/peleenet_ft/ \
-    --dist_eval \
-    --no_remove_head_from_pretained --finetune $PRETRAINED_MODEL
 ```
 
 ps: 如果未指定`cls_label_path_train`/`cls_label_path_val`，会读取`data_path`下train/val里的图片作为train-set/val-set。
@@ -155,15 +126,15 @@ ps: 如果未指定`cls_label_path_train`/`cls_label_path_val`，会读取`data_
 部分训练日志如下所示。
 
 ```
-[14:04:15.171051] Epoch: [119]  [2000/2502]  eta: 0:02:23  lr: 0.000001  loss: 1.3032 (1.2889)  time: 0.2833  data: 0.0065
-[14:04:20.781305] Epoch: [119]  [2020/2502]  eta: 0:02:17  lr: 0.000001  loss: 1.3059 (1.2895)  time: 0.2794  data: 0.0118
+[14:04:15.171051] Epoch: [119]  [1000/1251]  eta: 0:02:23  lr: 0.000001  loss: 1.3032 (1.2889)  time: 0.2833  data: 0.0065
+[14:04:20.781305] Epoch: [119]  [1020/1251]  eta: 0:02:17  lr: 0.000001  loss: 1.3059 (1.2895)  time: 0.2794  data: 0.0118
 ```
 
 ### 4.2 模型评估
 
 ``` shell
 python eval.py \
-    --model peleenet \
+    --model micronet_m0 \
     --batch_size 256 \
     --train_interpolation 'bilinear' \
     --data_path /path/to/imagenet/ \
@@ -178,7 +149,7 @@ ps: 如果未指定`cls_label_path_val`，会读取`data_path`/val里的图片�
 
 ```shell
 python predict.py \
-    --model peleenet \
+    --model micronet_m0 \
     --infer_imgs ./demo/ILSVRC2012_val_00020010.JPEG \
     --resume $TRAINED_MODEL
 ```
@@ -189,15 +160,15 @@ python predict.py \
 
 最终输出结果为
 ```
-[{'class_ids': [178, 246, 211, 236, 159], 'scores': [0.9958848357200623, 0.0028915307484567165, 0.00047466575051657856, 0.00018126785289496183, 0.00013171554019208997], 'file_name': './demo/ILSVRC2012_val_00020010.JPEG', 'label_names': ['Weimaraner', 'Great Dane', 'vizsla, Hungarian pointer', 'Doberman, Doberman pinscher', 'Rhodesian ridgeback']}]
+[{'class_ids': [178, 690, 176, 345, 246], 'scores': [0.8150453567504883, 0.07403502613306046, 0.028849413618445396, 0.021240053698420525, 0.005981378722935915], 'file_name': './demo/ILSVRC2012_val_00020010.JPEG', 'label_names': ['Weimaraner', 'oxcart', 'Saluki, gazelle hound', 'ox', 'Great Dane']}]
 ```
-表示预测的类别为`Weimaraner（魏玛猎狗）`，ID是`178`，置信度为`0.9958848357200623`。
+表示预测的类别为`Weimaraner（魏玛猎狗）`，ID是`178`，置信度为`0.8150453567504883`。
 
 ### 4.4 模型导出
 
 ```shell
 python export_model.py \
-    --model peleenet \
+    --model micronet_m0 \
     --output_dir /path/to/save/export_model/ \
     --resume $TRAINED_MODEL
 
@@ -210,9 +181,9 @@ python infer.py \
 
 输出结果为
 ```
-[{'class_ids': [178, 246, 211, 236, 159], 'scores': [0.996401309967041, 0.00265419646166265, 0.0004626315494533628, 0.00010984008986270055, 8.304142829729244e-05], 'file_name': './demo/ILSVRC2012_val_00020010.JPEG', 'label_names': ['Weimaraner', 'Great Dane', 'vizsla, Hungarian pointer', 'Doberman, Doberman pinscher', 'Rhodesian ridgeback']}]
+[{'class_ids': [178, 690, 176, 345, 246], 'scores': [0.8150453567504883, 0.07403502613306046, 0.028849413618445396, 0.021240053698420525, 0.005981378722935915], 'file_name': './demo/ILSVRC2012_val_00020010.JPEG', 'label_names': ['Weimaraner', 'oxcart', 'Saluki, gazelle hound', 'ox', 'Great Dane']}]
 ```
-表示预测的类别为`Weimaraner（魏玛猎狗）`，ID是`178`，置信度为`0.996401309967041`。与predict.py结果的误差在正常范围内。
+表示预测的类别为`Weimaraner（魏玛猎狗）`，ID是`178`，置信度为`0.8150453567504883`。与predict.py结果的误差在正常范围内。
 
 
 ## 5. 代码结构
@@ -250,18 +221,18 @@ pip3 install ./dist/auto_log-1.2.0-py3-none-any.whl
 ```
 进行TIPC：
 ```bash
-bash test_tipc/prepare.sh test_tipc/config/PeleeNet/peleenet.txt 'lite_train_lite_infer'
+bash test_tipc/prepare.sh test_tipc/config/MicroNet/micronet_m0.txt 'lite_train_lite_infer'
 
-bash test_tipc/test_train_inference_python.sh test_tipc/config/PeleeNet/peleenet.txt 'lite_train_lite_infer'
+bash test_tipc/test_train_inference_python.sh test_tipc/config/MicroNet/micronet_m0.txt 'lite_train_lite_infer'
 ```
 TIPC结果：
 
 如果运行成功，在终端中会显示下面的内容，具体的日志也会输出到`test_tipc/output/`文件夹中的文件中。
 
 ```
-Run successfully with command - python3 main.py --model=peleenet --aa='' --smoothing=0 --train_interpolation=bilinear --reprob=0 --mixup=0 --cutmix=0 --lr=0.25 --data_path=./dataset/ILSVRC2012/ --cls_label_path_train=./dataset/ILSVRC2012/train_list.txt --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --dist_eval    --output_dir=./test_tipc/output/norm_train_gpus_0_autocast_null/peleenet --epochs=2     --batch_size=8 !
-Run successfully with command - python3 eval.py --model=peleenet --train_interpolation=bilinear --data_path=./dataset/ILSVRC2012/ --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --resume=./test_tipc/output/norm_train_gpus_0_autocast_null/peleenet/checkpoint-latest.pd !
-Run successfully with command - python3 export_model.py --model=peleenet --resume=./test_tipc/output/norm_train_gpus_0_autocast_null/peleenet/checkpoint-latest.pd --output=./test_tipc/output/norm_train_gpus_0_autocast_null !
+Run successfully with command - python3 main.py --model=micronet_m0 --aa='' --smoothing=0 --train_interpolation=bilinear --reprob=0 --mixup=0 --cutmix=0 --lr=0.2 --data_path=./dataset/ILSVRC2012/ --cls_label_path_train=./dataset/ILSVRC2012/train_list.txt --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --dist_eval    --output_dir=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0 --epochs=2     --batch_size=8 !
+Run successfully with command - python3 eval.py --model=micronet_m0 --train_interpolation=bilinear --data_path=./dataset/ILSVRC2012/ --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --resume=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0/checkpoint-latest.pd !
+Run successfully with command - python3 export_model.py --model=micronet_m0 --resume=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0/checkpoint-latest.pd --output=./test_tipc/output/norm_train_gpus_0_autocast_null !
 ......
 ```
 
@@ -270,9 +241,9 @@ Run successfully with command - python3 export_model.py --model=peleenet --resum
 
 ## 7. License
 
-PeleeNet is released under MIT License.
+MicroNet is released under MIT License.
 
 
 ## 8. 参考链接与文献
-1. PeleeNet: An efficient DenseNet architecture for mobile devices: https://arxiv.org/pdf/1804.06882.pdf
-2. PeleeNet: https://github.com/Robert-JunWang/PeleeNet
+1. MicroNet: Improving Image Recognition with Extremely Low FLOPs: https://arxiv.org/abs/2108.05894
+2. micronet: https://github.com/liyunsheng13/micronet

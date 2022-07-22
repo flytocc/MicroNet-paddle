@@ -8,14 +8,14 @@ Linux端基础训练预测功能测试的主程序为`test_train_inference_pytho
 
 | 算法名称 | 模型名称 | 单机单卡 | 单机多卡 |
 | :----- | :------ | :------ | :----- |
-| PeleeNet | peleenet | 正常训练 | 正常训练 |
+| MicroNet | micronet_m0 | 正常训练 | 正常训练 |
 
 
 - 推理相关：
 
 | 算法名称 | 模型名称 | device_CPU | device_GPU | batchsize |
 |  :----:   |  :----: |   :----:   |  :----:  |   :----:   |
-|  PeleeNet   |  peleenet |  支持 | 支持 | 1 |
+|  MicroNet   |  micronet_m0 |  支持 | 支持 | 1 |
 
 
 ## 2. 测试流程
@@ -45,9 +45,9 @@ Linux端基础训练预测功能测试的主程序为`test_train_inference_pytho
 
 - 模式1：lite_train_lite_infer，使用少量数据训练，用于快速验证训练到预测的走通流程，不验证精度和速度；
 ```shell
-bash test_tipc/prepare.sh test_tipc/config/PeleeNet/peleenet.txt 'lite_train_lite_infer'
+bash test_tipc/prepare.sh test_tipc/config/MicroNet/micronet_m0.txt 'lite_train_lite_infer'
 
-bash test_tipc/test_train_inference_python.sh test_tipc/config/PeleeNet/peleenet.txt 'lite_train_lite_infer''lite_train_lite_infer'
+bash test_tipc/test_train_inference_python.sh test_tipc/config/MicroNet/micronet_m0.txt 'lite_train_lite_infer''lite_train_lite_infer'
 ```
 
 运行相应指令后，在`test_tipc/output`文件夹下自动会保存运行日志。如'lite_train_lite_infer'模式下，会运行训练+inference的链条，因此，在`test_tipc/output`文件夹有以下文件：
@@ -65,14 +65,14 @@ test_tipc/output/
 
 其中`results_python.log`中包含了每条指令的运行状态，如果运行成功会输出：
 ```
-Run successfully with command - python3 main.py --model=peleenet --aa='' --smoothing=0 --train_interpolation=bilinear --reprob=0 --mixup=0 --cutmix=0 --lr=0.25 --data_path=./dataset/ILSVRC2012/ --cls_label_path_train=./dataset/ILSVRC2012/train_list.txt --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --dist_eval    --output_dir=./test_tipc/output/norm_train_gpus_0_autocast_null/peleenet --epochs=2     --batch_size=8 !
-Run successfully with command - python3 eval.py --model=peleenet --train_interpolation=bilinear --data_path=./dataset/ILSVRC2012/ --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --resume=./test_tipc/output/norm_train_gpus_0_autocast_null/peleenet/checkpoint-latest.pd !
+Run successfully with command - python3 main.py --model=micronet_m0 --aa='' --smoothing=0 --train_interpolation=bilinear --reprob=0 --mixup=0 --cutmix=0 --lr=0.2 --data_path=./dataset/ILSVRC2012/ --cls_label_path_train=./dataset/ILSVRC2012/train_list.txt --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --dist_eval    --output_dir=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0 --epochs=2     --batch_size=8 !
+Run successfully with command - python3 eval.py --model=micronet_m0 --train_interpolation=bilinear --data_path=./dataset/ILSVRC2012/ --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --resume=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0/checkpoint-latest.pd !
 ......
 ```
 如果运行失败，会输出：
 ```
-Run failed with command - python3 main.py --model=peleenet --aa='' --smoothing=0 --train_interpolation=bilinear --reprob=0 --mixup=0 --cutmix=0 --lr=0.25 --data_path=./dataset/ILSVRC2012/ --cls_label_path_train=./dataset/ILSVRC2012/train_list.txt --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --dist_eval    --output_dir=./test_tipc/output/norm_train_gpus_0_autocast_null/peleenet --epochs=2     --batch_size=8 !
-Run failed with command - python3 eval.py --model=peleenet --train_interpolation=bilinear --data_path=./dataset/ILSVRC2012/ --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --resume=./test_tipc/output/norm_train_gpus_0_autocast_null/peleenet/checkpoint-latest.pd !
+Run failed with command - python3 main.py --model=micronet_m0 --aa='' --smoothing=0 --train_interpolation=bilinear --reprob=0 --mixup=0 --cutmix=0 --lr=0.2 --data_path=./dataset/ILSVRC2012/ --cls_label_path_train=./dataset/ILSVRC2012/train_list.txt --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --dist_eval    --output_dir=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0 --epochs=2     --batch_size=8 !
+Run failed with command - python3 eval.py --model=micronet_m0 --train_interpolation=bilinear --data_path=./dataset/ILSVRC2012/ --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --resume=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0/checkpoint-latest.pd !
 ......
 ```
 可以很方便的根据`results_python.log`中的内容判定哪一个指令运行错误。

@@ -17,15 +17,15 @@
 
 | 算法论文 | 模型名称 | 模型类型 | 基础<br>训练预测 | 更多<br>训练方式 |
 | :------ | :--------- | :---- | :------- | :---------------- |
-| PeleeNet | peleenet  | 分类  | 支持     | 多机多卡 <br> 混合精度 |
+| MicroNet | micronet_m0  | 分类  | 支持     | 多机多卡 <br> 混合精度 |
 
 ## 3. 测试工具简介
 ### 目录介绍
 ```
 ./test_tipc/
 ├── config                              # 配置文件目录
-│   └── PeleeNet                        # PeleeNet系列模型测试配置文件目录
-│       └── peleenet.txt                # 基础训练预测配置文件
+│   └── MicroNet                        # PeleeNet系列模型测试配置文件目录
+│       └── micronet_m0.txt                # 基础训练预测配置文件
 ├── docs
 │   ├── guide.png
 │   ├── install.md                      # 配置运行环境
@@ -59,17 +59,17 @@ bash test_tipc/test_train_inference_python.sh configs/[model_name]/[params_file_
 
 ```shell
 # 准备数据
-bash test_tipc/prepare.sh test_tipc/config/PeleeNet/peleenet.txt 'lite_train_lite_infer'
+bash test_tipc/prepare.sh test_tipc/config/MicroNet/micronet_m0.txt 'lite_train_lite_infer'
 
 # 运行测试
-bash test_tipc/test_train_inference_python.sh test_tipc/config/PeleeNet/peleenet.txt 'lite_train_lite_infer''lite_train_lite_infer'
+bash test_tipc/test_train_inference_python.sh test_tipc/config/MicroNet/micronet_m0.txt 'lite_train_lite_infer''lite_train_lite_infer'
 ```
 
 关于本示例命令的更多信息可查看[基础训练预测使用文档](docs/test_train_inference_python.md)。
 
 ### 配置文件命名规范
 
-在`configs`目录下，**按模型系列划分为子目录**，子目录中存放所有该模型系列测试需要用到的配置文件，如`PeleeNet`文件夹下存放了所有`PeleeNet`系列模型的配置文件。配置文件的命名遵循如下规范：
+在`configs`目录下，**按模型系列划分为子目录**，子目录中存放所有该模型系列测试需要用到的配置文件，如`MicroNet`文件夹下存放了所有`MicroNet`系列模型的配置文件。配置文件的命名遵循如下规范：
 
 1. 基础训练预测配置简单命名为：`ModelName_train_infer_python.txt`，表示**Linux环境下单机、不使用混合精度训练+python预测**，其完整命名对应`ModelName_train_linux_gpu_normal_normal_infer_python_linux_gpu_cpu.txt`，由于本配置文件使用频率较高，这里进行了名称简化。其中`ModelName`指具体模型名称
 2. 其他带训练配置命名格式为：`ModelName_train_训练硬件环境(linux_gpu/linux_dcu/…)_是否多机(fleet/normal)_是否混合精度(amp/normal)_预测模式(infer/lite/serving/js)_语言(cpp/python/java)_预测硬件环境(ModelName_linux_gpu/mac/jetson/opencl_arm_gpu/...).txt`。如，linux gpu下多机多卡+混合精度链条测试对应配置 `ModelName_train_linux_gpu_fleet_amp_infer_python_linux_gpu_cpu.txt`，linux dcu下基础训练预测对应配置 `ModelName_train_linux_dcu_normal_normal_infer_python_linux_dcu.txt`。
