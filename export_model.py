@@ -1,17 +1,3 @@
-# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
-
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-
-#     http://www.apache.org/licenses/LICENSE-2.0
-
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
 import argparse
 
@@ -22,45 +8,37 @@ import util.misc as misc
 import models
 
 
-def get_args_parser():
-    parser = argparse.ArgumentParser('MicroNet training and evaluation script', add_help=False)
-
-    # Model parameters
-    parser.add_argument('--model', default='micronet_m0', type=str, metavar='MODEL',
-                        help='Name of model to train')
-    parser.add_argument('--input_size', default=224, type=int, help='images input size')
-
-    # Dataset parameters
-    parser.add_argument('--nb_classes', default=1000, type=int,
-                        help='number of the classification types')
-
-    parser.add_argument('--output_dir', default='',
-                        help='path where to save, empty for no saving')
-    parser.add_argument('--resume', default='', help='resume from checkpoint')
-
-    return parser
+parser = argparse.ArgumentParser(description='Paddle ImageNet evalution')
+parser.add_argument('--model', default=None, type=str, metavar='MODEL',
+                    help='Name of model to train (default: None')
+parser.add_argument('--num_classes', type=int, default=1000, metavar='N',
+                    help='number of label classes (default: 1000)')
+parser.add_argument('--input_size', type=int, default=224, metavar='N',
+                    help='Image patch size (default: 224)')
+parser.add_argument('--resume', default='',
+                    help='resume from checkpoint')
+parser.add_argument('--output', default='', type=str, metavar='PATH',
+                    help='path to output folder (default: none, current dir)')
 
 
 def main(args):
     # model
     model = models.__dict__[args.model](
-        num_classes=args.nb_classes)
+        num_classes=args.num_classes)
 
     misc.load_model(args, model)
 
-    shape = [-1, 3, args.input_size, args.input_size]
+    shape = [1, 3, args.input_size, args.input_size]
 
     model.eval()
     model = paddle.jit.to_static(
         model,
         input_spec=[paddle.static.InputSpec(shape=shape, dtype='float32')])
-    save_path = os.path.join(args.output_dir, 'model')
+    save_path = os.path.join(args.output, 'model')
     paddle.jit.save(model, save_path)
-    print(f'Model is saved in {args.output_dir}.') # model.pdiparams|info|model
+    print(f'Model is saved in {args.output}.') # model.pdiparams|info|model
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('MicroNet training and evaluation script', parents=[get_args_parser()])
     args = parser.parse_args()
-    args.eval = True
     main(args)

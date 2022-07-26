@@ -24,7 +24,7 @@
 ```
 ./test_tipc/
 ├── config                              # 配置文件目录
-│   └── MicroNet                        # PeleeNet系列模型测试配置文件目录
+│   └── MicroNet                        # MicroNet 系列模型测试配置文件目录
 │       └── micronet_m0.txt                # 基础训练预测配置文件
 ├── docs
 │   ├── guide.png

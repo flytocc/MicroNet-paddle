@@ -5,7 +5,7 @@ gpu_list:0|0,1
 null:null
 null:null
 --epochs:lite_train_lite_infer=2
---output_dir:./output/
+--output:./output/
 --batch_size:8
 --resume:null
 train_model_name:checkpoint-latest.pd
@@ -13,7 +13,7 @@ train_infer_img_dir:./dataset/ILSVRC2012/val
 null:null
 ##
 trainer:norm_train
-norm_train:main.py --model=micronet_m0 --aa='' --smoothing=0 --train_interpolation=bilinear --reprob=0 --mixup=0 --cutmix=0 --lr=0.2 --data_path=./dataset/ILSVRC2012/ --cls_label_path_train=./dataset/ILSVRC2012/train_list.txt --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --dist_eval
+norm_train:main.py ./dataset/ILSVRC2012/ --cls_label_path_train=./dataset/ILSVRC2012/train_list.txt --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --model=micronet_m0 --interpolation=bilinear --weight_decay=3e-5 --lr=0.2 --warmup_lr=0 --min_lr=0 --warmup_epochs=0 --cooldown_epochs=0 --reprob=0 --smoothing=0 --dist_eval
 pact_train:null
 fpgm_train:null
 distill_train:null
@@ -21,7 +21,7 @@ null:null
 null:null
 ##
 ===========================eval_params=========================== 
-eval:eval.py --model=micronet_m0 --train_interpolation=bilinear --data_path=./dataset/ILSVRC2012/ --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt
+eval:eval.py ./dataset/ILSVRC2012/ --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --model=micronet_m0 --interpolation=bilinear
 null:null
 ##
 ===========================infer_params==========================

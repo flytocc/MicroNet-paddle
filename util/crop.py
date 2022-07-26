@@ -1,9 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
 import math
 
 import random
@@ -19,6 +13,7 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
     Following BYOL's TF code:
     https://github.com/deepmind/deepmind-research/blob/master/byol/utils/dataset.py#L206
     """
+
     def _get_param(self, image, attempts=10):
         width, height = transforms.transforms._get_image_size(image)
         area = height * width

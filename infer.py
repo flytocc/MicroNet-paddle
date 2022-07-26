@@ -1,17 +1,3 @@
-# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
-
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-
-#     http://www.apache.org/licenses/LICENSE-2.0
-
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
 import argparse
 from os import path as osp
@@ -19,35 +5,41 @@ from PIL import Image
 
 import paddle
 import paddle.nn.functional as F
-import paddle.vision.transforms as transforms
 from paddle import inference
 from paddle.inference import Config, create_predictor
 
+from util.data import create_transform, IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
-def parse_args():
-    def str2bool(v):
-        return v.lower() in ("true", "t", "1")
 
-    # general params
-    parser = argparse.ArgumentParser("MicroNet Inference model script")
-    parser.add_argument("--input_file", type=str, help="input file path")
-    parser.add_argument("--model_file", type=str)
-    parser.add_argument("--params_file", type=str)
+def str2bool(v):
+    return v.lower() in ("true", "t", "1")
 
-    # params for predict
-    parser.add_argument("-b", "--batch_size", type=int, default=1)
-    parser.add_argument("--use_gpu", type=str2bool, default=True)
-    parser.add_argument("--precision", type=str, default="fp32")
-    parser.add_argument("--ir_optim", type=str2bool, default=True)
-    parser.add_argument("--use_tensorrt", type=str2bool, default=False)
-    parser.add_argument("--gpu_mem", type=int, default=8000)
-    parser.add_argument("--enable_benchmark", type=str2bool, default=False)
-    parser.add_argument("--enable_mkldnn", type=str2bool, default=False)
-    parser.add_argument("--cpu_threads", type=int, default=None)
-    parser.add_argument('--train_interpolation', type=str, default='bicubic',
-                        help='Training interpolation (random, bilinear, bicubic default: "bicubic")')
+# general params
+parser = argparse.ArgumentParser(description='Paddle ImageNet Inference model script')
+parser.add_argument("--input_file", type=str, help="input file path")
+parser.add_argument("--model_file", type=str)
+parser.add_argument("--params_file", type=str)
 
-    return parser.parse_args()
+# params for predict
+parser.add_argument('--input_size', default=224, type=int,
+                    metavar='N', help='Input image dimension, uses model default if empty')
+parser.add_argument("-b", "--batch_size", type=int, default=1)
+parser.add_argument("--use_gpu", type=str2bool, default=True)
+parser.add_argument("--precision", type=str, default="fp32")
+parser.add_argument("--ir_optim", type=str2bool, default=True)
+parser.add_argument("--use_tensorrt", type=str2bool, default=False)
+parser.add_argument("--gpu_mem", type=int, default=8000)
+parser.add_argument("--enable_benchmark", type=str2bool, default=False)
+parser.add_argument("--enable_mkldnn", type=str2bool, default=False)
+parser.add_argument("--cpu_threads", type=int, default=None)
+parser.add_argument("--crop_pct", default=None, type=float,
+                    metavar='N', help='Input image center crop pct')
+parser.add_argument("--mean", type=float, nargs='+', default=None, metavar='MEAN',
+                    help='Override mean pixel value of dataset')
+parser.add_argument("--std", type=float,  nargs='+', default=None, metavar='STD',
+                    help='Override std deviation of of dataset')
+parser.add_argument("--interpolation", default='', type=str, metavar='NAME',
+                    help='Image resize interpolation type (overrides model)')
 
 
 def create_paddle_predictor(args):
@@ -106,9 +98,7 @@ def parse_file_paths(input_path: str) -> list:
     return files
 
 
-def main():
-    args = parse_args()
-
+def main(args):
     model_name = 'MicroNet'
     print(f"Inference model({model_name})...")
     # InferenceHelper = build_inference_helper(cfg.INFERENCE)
@@ -137,16 +127,19 @@ def main():
             time_keys=['preprocess_time', 'inference_time', 'postprocess_time'],
             warmup=num_warmup)
 
-    train_interpolation = args.train_interpolation \
-        if hasattr(args, 'train_interpolation') else 'bilinear'
-    if train_interpolation == 'random':
-        train_interpolation = 'bicubic'
-    preprocess = transforms.Compose([
-        transforms.Resize(256, interpolation=train_interpolation),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-    ])
+    # eval transform
+    mean = args.mean or IMAGENET_DEFAULT_MEAN
+    std = args.std or IMAGENET_DEFAULT_STD
+    interpolation = args.interpolation or 'bicubic'
+
+    preprocess = create_transform(
+        input_size=args.input_size,
+        is_training=False,
+        interpolation=interpolation,
+        mean=mean,
+        std=std,
+        crop_pct=args.crop_pct,
+    )
 
     # Inferencing process
     batch_num = args.batch_size
@@ -220,5 +213,6 @@ def main():
         autolog.report()
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    args = parser.parse_args()
+    main(args)

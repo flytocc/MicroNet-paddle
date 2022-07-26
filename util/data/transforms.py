@@ -31,14 +31,14 @@ class ToTensor:
 
 def _pil_interp(method):
     if method == 'bicubic':
-        return Image.BICUBIC
+        return Image.Resampling.BICUBIC
     elif method == 'lanczos':
-        return Image.LANCZOS
+        return Image.Resampling.LANCZOS
     elif method == 'hamming':
-        return Image.HAMMING
+        return Image.Resampling.HAMMING
     else:
         # default bilinear, do we want to allow nearest?
-        return Image.BILINEAR
+        return Image.Resampling.BILINEAR
 
 
 _RANDOM_INTERPOLATION = ('bilinear', 'bicubic')

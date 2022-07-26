@@ -1,20 +1,8 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-# --------------------------------------------------------
-# References:
-# DeiT: https://github.com/facebookresearch/deit
-# BEiT: https://github.com/microsoft/unilm/tree/master/beit
-# --------------------------------------------------------
-
 import math
 import sys
 from typing import Iterable, Optional
 
 import paddle
-import paddle.amp as amp
 import paddle.nn as nn
 import paddle.optimizer as optim
 
@@ -37,32 +25,32 @@ def train_one_epoch(model: nn.Layer, criterion: nn.Layer,
                     epoch: int, loss_scaler,
                     model_ema: Optional[ModelEma] = None,
                     mixup_fn: Optional[Mixup] = None, log_writer=None,
-                    num_training_steps_per_epoch=None, use_amp=False,
+                    num_training_steps_per_epoch=None, amp=False,
                     args=None):
     model.train()
     metric_logger = misc.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
-    print_freq = 20
 
-    accum_iter = args.accum_iter
+    print_freq = args.log_interval
+    update_freq = args.update_freq
 
     clear_grad_(optimizer)
 
     for data_iter_step, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
-        if num_training_steps_per_epoch is not None and data_iter_step // accum_iter >= num_training_steps_per_epoch:
+        if num_training_steps_per_epoch is not None and data_iter_step // update_freq >= num_training_steps_per_epoch:
             continue
 
         # we use a per iteration (instead of per epoch) lr scheduler
-        if data_iter_step % accum_iter == 0:
+        if data_iter_step % update_freq == 0:
             lr = lr_sched.adjust_learning_rate(
-                data_iter_step // accum_iter / num_training_steps_per_epoch + epoch, args)
+                data_iter_step // update_freq / num_training_steps_per_epoch + epoch, args)
             optimizer.set_lr(lr)
 
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
 
-        with amp.auto_cast(enable=use_amp):
+        with paddle.amp.auto_cast(enable=amp):
             outputs = model(samples)
             loss = criterion(outputs, targets)
 
@@ -72,17 +60,17 @@ def train_one_epoch(model: nn.Layer, criterion: nn.Layer,
             print("Loss is {}, stopping training".format(loss_value))
             sys.exit(1)
 
-        loss /= accum_iter
-        if use_amp:
+        loss /= update_freq
+        if amp:
             norm = loss_scaler(loss, optimizer, parameters=model.parameters(),
-                               update_grad=(data_iter_step + 1) % accum_iter == 0)
+                               update_grad=(data_iter_step + 1) % update_freq == 0)
             scale = loss_scaler.state_dict().get('scale')
         else:
             loss.backward()
-            if (data_iter_step + 1) % accum_iter == 0:
+            if (data_iter_step + 1) % update_freq == 0:
                 optimizer.step()
 
-        if (data_iter_step + 1) % accum_iter == 0:
+        if (data_iter_step + 1) % update_freq == 0:
             clear_grad_(optimizer)
             if model_ema is not None:
                 model_ema.update(model)
@@ -93,9 +81,9 @@ def train_one_epoch(model: nn.Layer, criterion: nn.Layer,
         metric_logger.update(lr=lr)
 
         loss_value_reduce = misc.all_reduce_mean(loss_value)
-        if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
+        if log_writer is not None and (data_iter_step + 1) % update_freq == 0:
             metrics = {'loss': loss_value_reduce, 'lr': lr}
-            if use_amp:
+            if amp:
                 metrics.update({'norm': norm, 'scale': scale})
             log_writer.update(metrics)
             log_writer.set_step()
@@ -107,7 +95,7 @@ def train_one_epoch(model: nn.Layer, criterion: nn.Layer,
 
 
 @paddle.no_grad()
-def evaluate(data_loader, model, use_amp=False):
+def evaluate(data_loader, model, amp=False):
     criterion = nn.CrossEntropyLoss()
 
     metric_logger = misc.MetricLogger(delimiter="  ")
@@ -121,7 +109,7 @@ def evaluate(data_loader, model, use_amp=False):
         target = batch[-1]
 
         # compute output
-        with amp.auto_cast(enable=use_amp):
+        with paddle.amp.auto_cast(enable=amp):
             output = model(images)
             loss = criterion(output, target)
 

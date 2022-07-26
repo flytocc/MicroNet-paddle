@@ -1,14 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-# --------------------------------------------------------
-# References:
-# DeiT: https://github.com/facebookresearch/deit
-# BEiT: https://github.com/microsoft/unilm/tree/master/beit
-# --------------------------------------------------------
-
 import builtins
 import datetime
 import os
@@ -26,6 +15,7 @@ from .model_ema import get_state_dict, load_checkpoint_for_ema
 
 
 class WandbLogger(object):
+
     def __init__(self, args, **kwargs):
         wandb.init(config=args, **kwargs)
 
@@ -112,6 +102,7 @@ class SmoothedValue(object):
 
 
 class MetricLogger(object):
+
     def __init__(self, delimiter="\t", log_file=""):
         self.meters = defaultdict(SmoothedValue)
         self.delimiter = delimiter
@@ -209,6 +200,7 @@ def setup_for_distributed(is_master):
 
 
 class NativeScalerWithGradNormCount:
+
     def __init__(self):
         self._scaler = amp.GradScaler(init_loss_scaling=2.**16)
 
@@ -298,8 +290,8 @@ def save_model(args, epoch, model_without_ddp, model_ema=None, optimizer=None, l
         to_save['model_ema'] = get_state_dict(model_ema)
     if loss_scaler is not None:
         to_save['scaler'] = loss_scaler.state_dict()
-    os.makedirs(args.output_dir, exist_ok=True)
-    save_on_master(to_save, os.path.join(args.output_dir, f'checkpoint-{tag or epoch}.pd'))
+    os.makedirs(args.output, exist_ok=True)
+    save_on_master(to_save, os.path.join(args.output, f'checkpoint-{tag or epoch}.pd'))
 
 
 def load_model(args, model_without_ddp, model_ema=None, optimizer=None, loss_scaler=None):
@@ -309,11 +301,8 @@ def load_model(args, model_without_ddp, model_ema=None, optimizer=None, loss_sca
         print("Resume checkpoint %s" % args.resume)
         if 'epoch' in checkpoint:
             args.start_epoch = checkpoint['epoch'] + 1
-        if model_ema is not None:
-            if hasattr(args, 'resume_ema') and args.resume_ema:
-                model_ema._load_checkpoint(args.resume_ema)
-            elif 'model_ema' in checkpoint:
-                load_checkpoint_for_ema(model_ema, checkpoint)
+        if model_ema is not None and 'model_ema' in checkpoint:
+            load_checkpoint_for_ema(model_ema, checkpoint)
         if optimizer is not None and 'optimizer' in checkpoint:
             optimizer.set_state_dict(checkpoint['optimizer'])
         if loss_scaler is not None and 'scaler' in checkpoint:

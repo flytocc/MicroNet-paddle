@@ -1,25 +1,14 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-# --------------------------------------------------------
-# References:
-# DeiT: https://github.com/facebookresearch/deit
-# --------------------------------------------------------
-
 import os
 from PIL import Image
 
-from util.data import create_transform
-from util.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, DEFAULT_CROP_PCT
+from util.data import create_transform, IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
 from paddle.io import Dataset
-import paddle.vision.transforms as transforms
 import paddle.vision.datasets as datasets
 
 
 class ImageNetDataset(Dataset):
+
     def __init__(
             self,
             image_root,
@@ -69,48 +58,37 @@ def build_dataset(is_train, args):
     transform = build_transform(is_train, args)
 
     if is_train and hasattr(args, 'cls_label_path_train') and args.cls_label_path_train:
-        dataset = ImageNetDataset(args.data_path, args.cls_label_path_train, transform=transform)
+        dataset = ImageNetDataset(args.data_dir, args.cls_label_path_train, transform=transform)
     elif not is_train and hasattr(args, 'cls_label_path_val') and args.cls_label_path_val:
-        dataset = ImageNetDataset(args.data_path, args.cls_label_path_val, transform=transform)
+        dataset = ImageNetDataset(args.data_dir, args.cls_label_path_val, transform=transform)
     else:
-        root = os.path.join(args.data_path,
-            'train' if is_train and not (hasattr(args, 'debug') and args.debug) else 'val')
+        root = os.path.join(args.data_dir,args.train_split if is_train else args.val_split)
         dataset = datasets.DatasetFolder(root, transform=transform)
 
     return dataset
 
 
 def build_transform(is_train, args):
-    mean = IMAGENET_DEFAULT_MEAN
-    std = IMAGENET_DEFAULT_STD
-    # train transform
+    trans_parmas = dict(
+        input_size=args.input_size,
+        is_training=is_train,
+        interpolation=args.interpolation or 'bicubic',
+        mean=args.mean or IMAGENET_DEFAULT_MEAN,
+        std=args.std or IMAGENET_DEFAULT_STD,
+        crop_pct=args.crop_pct,
+    )
+
     if is_train:
-        # this should always dispatch to transforms_imagenet_train
-        transform = create_transform(
-            input_size=args.input_size,
-            is_training=True,
-            color_jitter=args.color_jitter,
-            auto_augment=args.aa,
-            interpolation=args.train_interpolation,
+        trans_parmas.update(
             re_prob=args.reprob,
             re_mode=args.remode,
             re_count=args.recount,
-            mean=mean,
-            std=std,
+            scale=args.scale,
+            ratio=args.ratio,
+            hflip=args.hflip,
+            vflip=args.vflip,
+            color_jitter=args.color_jitter,
+            auto_augment=args.aa,
         )
-        return transform
 
-    # eval transform
-    crop_pct = args.crop_pct if hasattr(args, 'crop_pct') else DEFAULT_CROP_PCT
-    size = int(args.input_size / crop_pct)
-    train_interpolation = args.train_interpolation \
-        if hasattr(args, 'train_interpolation') else 'bilinear'
-    if train_interpolation == 'random':
-        train_interpolation = 'bicubic'
-    transform = transforms.Compose([
-        transforms.Resize(size, interpolation=train_interpolation),
-        transforms.CenterCrop(args.input_size),
-        transforms.ToTensor(),
-        transforms.Normalize(mean, std),
-    ])
-    return transform
+    return create_transform(**trans_parmas)

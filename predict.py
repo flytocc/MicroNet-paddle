@@ -1,5 +1,3 @@
-# Copyright (c) 2015-present, Facebook, Inc.
-# All rights reserved.
 import argparse
 from PIL import Image
 
@@ -13,25 +11,25 @@ from util.datasets import build_transform
 import models
 
 
-def get_args_parser():
-    parser = argparse.ArgumentParser('MicroNet training and evaluation script', add_help=False)
-
-    # Model parameters
-    parser.add_argument('--model', default='micronet_m0', type=str, metavar='MODEL',
-                        help='Name of model to train')
-    parser.add_argument('--input_size', default=224, type=int, help='images input size')
-
-    # Dataset parameters
-    parser.add_argument('--infer_imgs', default='./demo/ILSVRC2012_val_00020010.JPEG', type=str,
-                        help='dataset path')
-    parser.add_argument('--nb_classes', default=1000, type=int,
-                        help='number of the classification types')
-    parser.add_argument('--train_interpolation', type=str, default='bicubic',
-                        help='Training interpolation (random, bilinear, bicubic default: "bicubic")')
-
-    parser.add_argument('--resume', default='', help='resume from checkpoint')
-
-    return parser
+parser = argparse.ArgumentParser(description='Paddle ImageNet training and evaluation script')
+parser.add_argument('--infer_imgs', default='./demo/ILSVRC2012_val_00020010.JPEG', type=str,
+                    help='dataset path')
+parser.add_argument('--model', default=None, type=str, metavar='MODEL',
+                    help='Name of model to train (default: None')
+parser.add_argument('--num_classes', type=int, default=1000, metavar='N',
+                    help='number of label classes (default: 1000)')
+parser.add_argument('--input_size', type=int, default=224, metavar='N',
+                    help='Image patch size (default: 224)')
+parser.add_argument('--crop_pct', default=None, type=float,
+                    metavar='N', help='Input image center crop pct')
+parser.add_argument('--mean', type=float, nargs='+', default=None, metavar='MEAN',
+                    help='Override mean pixel value of dataset')
+parser.add_argument('--std', type=float, nargs='+', default=None, metavar='STD',
+                    help='Override std deviation of dataset')
+parser.add_argument('--interpolation', default='', type=str, metavar='NAME',
+                    help='Image resize interpolation type (overrides model)')
+parser.add_argument('--resume', default='',
+                    help='resume from checkpoint')
 
 
 def main(args):
@@ -40,7 +38,7 @@ def main(args):
     preprocess = build_transform(is_train=False, args=args)
 
     model = models.__dict__[args.model](
-        num_classes=args.nb_classes)
+        num_classes=args.num_classes)
 
     misc.load_model(args, model)
 
@@ -77,7 +75,5 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('MicroNet training and evaluation script', parents=[get_args_parser()])
     args = parser.parse_args()
-    args.eval = True
     main(args)

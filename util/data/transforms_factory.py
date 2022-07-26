@@ -24,7 +24,7 @@ def transforms_noaug_train(
         # random interpolation not supported with no-aug
         interpolation = 'bilinear'
     tfl = [
-        transforms.Resize(img_size, _pil_interp(interpolation)),
+        transforms.Resize(img_size, interpolation),
         transforms.CenterCrop(img_size)
     ]
     if use_prefetcher:
@@ -33,9 +33,7 @@ def transforms_noaug_train(
     else:
         tfl += [
             transforms.ToTensor(),
-            transforms.Normalize(
-                mean=mean,
-                std=std)
+            transforms.Normalize(mean=mean, std=std)
         ]
     return transforms.Compose(tfl)
 
@@ -112,9 +110,7 @@ def transforms_imagenet_train(
     else:
         final_tfl += [
             transforms.ToTensor(),
-            transforms.Normalize(
-                mean=mean,
-                std=std)
+            transforms.Normalize(mean=mean, std=std)
         ]
         if re_prob > 0.:
             final_tfl.append(
@@ -146,7 +142,7 @@ def transforms_imagenet_eval(
         scale_size = int(math.floor(img_size / crop_pct))
 
     tfl = [
-        transforms.Resize(scale_size, _pil_interp(interpolation)),
+        transforms.Resize(scale_size, interpolation),
         transforms.CenterCrop(img_size),
     ]
     if use_prefetcher:
@@ -155,9 +151,7 @@ def transforms_imagenet_eval(
     else:
         tfl += [
             transforms.ToTensor(),
-            transforms.Normalize(
-                     mean=mean,
-                     std=std)
+            transforms.Normalize(mean=mean, std=std)
         ]
 
     return transforms.Compose(tfl)

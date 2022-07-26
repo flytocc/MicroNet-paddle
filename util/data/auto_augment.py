@@ -38,11 +38,11 @@ _HPARAMS_DEFAULT = dict(
     img_mean=_FILL,
 )
 
-_RANDOM_INTERPOLATION = (Image.BILINEAR, Image.BICUBIC)
+_RANDOM_INTERPOLATION = (Image.Resampling.BILINEAR, Image.Resampling.BICUBIC)
 
 
 def _interpolation(kwargs):
-    interpolation = kwargs.pop('resample', Image.BILINEAR)
+    interpolation = kwargs.pop('resample', Image.Resampling.BILINEAR)
     if isinstance(interpolation, (list, tuple)):
         return random.choice(interpolation)
     else:
@@ -57,34 +57,34 @@ def _check_args_tf(kwargs):
 
 def shear_x(img, factor, **kwargs):
     _check_args_tf(kwargs)
-    return img.transform(img.size, Image.AFFINE, (1, factor, 0, 0, 1, 0), **kwargs)
+    return img.transform(img.size, Image.Transform.AFFINE, (1, factor, 0, 0, 1, 0), **kwargs)
 
 
 def shear_y(img, factor, **kwargs):
     _check_args_tf(kwargs)
-    return img.transform(img.size, Image.AFFINE, (1, 0, 0, factor, 1, 0), **kwargs)
+    return img.transform(img.size, Image.Transform.AFFINE, (1, 0, 0, factor, 1, 0), **kwargs)
 
 
 def translate_x_rel(img, pct, **kwargs):
     pixels = pct * img.size[0]
     _check_args_tf(kwargs)
-    return img.transform(img.size, Image.AFFINE, (1, 0, pixels, 0, 1, 0), **kwargs)
+    return img.transform(img.size, Image.Transform.AFFINE, (1, 0, pixels, 0, 1, 0), **kwargs)
 
 
 def translate_y_rel(img, pct, **kwargs):
     pixels = pct * img.size[1]
     _check_args_tf(kwargs)
-    return img.transform(img.size, Image.AFFINE, (1, 0, 0, 0, 1, pixels), **kwargs)
+    return img.transform(img.size, Image.Transform.AFFINE, (1, 0, 0, 0, 1, pixels), **kwargs)
 
 
 def translate_x_abs(img, pixels, **kwargs):
     _check_args_tf(kwargs)
-    return img.transform(img.size, Image.AFFINE, (1, 0, pixels, 0, 1, 0), **kwargs)
+    return img.transform(img.size, Image.Transform.AFFINE, (1, 0, pixels, 0, 1, 0), **kwargs)
 
 
 def translate_y_abs(img, pixels, **kwargs):
     _check_args_tf(kwargs)
-    return img.transform(img.size, Image.AFFINE, (1, 0, 0, 0, 1, pixels), **kwargs)
+    return img.transform(img.size, Image.Transform.AFFINE, (1, 0, 0, 0, 1, pixels), **kwargs)
 
 
 def rotate(img, degrees, **kwargs):
@@ -114,7 +114,7 @@ def rotate(img, degrees, **kwargs):
         )
         matrix[2] += rotn_center[0]
         matrix[5] += rotn_center[1]
-        return img.transform(img.size, Image.AFFINE, matrix, **kwargs)
+        return img.transform(img.size, Image.Transform.AFFINE, matrix, **kwargs)
     else:
         return img.rotate(degrees, resample=kwargs['resample'])
 

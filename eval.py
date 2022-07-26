@@ -1,5 +1,3 @@
-# Copyright (c) 2015-present, Facebook, Inc.
-# All rights reserved.
 import argparse
 
 import paddle
@@ -13,31 +11,35 @@ from engine import evaluate
 import models
 
 
-def get_args_parser():
-    parser = argparse.ArgumentParser('MicroNet training and evaluation script', add_help=False)
-    parser.add_argument('--batch_size', default=64, type=int,
-                        help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
-
-    # Model parameters
-    parser.add_argument('--model', default='micronet_m0', type=str, metavar='MODEL',
-                        help='Name of model to train')
-    parser.add_argument('--input_size', default=224, type=int, help='images input size')
-
-    # Dataset parameters
-    parser.add_argument('--data_path', default='/datasets/imagenet/', type=str,
-                        help='dataset path')
-    parser.add_argument('--nb_classes', default=1000, type=int,
-                        help='number of the classification types')
-    parser.add_argument('--cls_label_path_val', default=None, type=str,
-                        help='dataset label path')
-    parser.add_argument('--train_interpolation', type=str, default='bicubic',
-                        help='Training interpolation (random, bilinear, bicubic default: "bicubic")')
-
-    parser.add_argument('--resume', default='', help='resume from checkpoint')
-    parser.add_argument('--dist_eval', action='store_true', default=False, help='Enabling distributed evaluation')
-    parser.add_argument('--num_workers', default=10, type=int)
-
-    return parser
+parser = argparse.ArgumentParser(description='Paddle ImageNet evalution')
+parser.add_argument('data_dir', metavar='DIR',
+                    help='path to dataset')
+parser.add_argument('--val_split', metavar='NAME', default='val',
+                    help='dataset split (default: validation)')
+parser.add_argument('--model', default=None, type=str, metavar='MODEL',
+                    help='Name of model to train (default: None')
+parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
+                    help='number of data loading workers (default: 2)')
+parser.add_argument('-b', '--batch_size', default=256, type=int,
+                    metavar='N', help='mini-batch size (default: 256)')
+parser.add_argument('--input_size', type=int, default=224, metavar='N',
+                    help='Image patch size (default: 224)')
+parser.add_argument('--crop_pct', default=None, type=float,
+                    metavar='N', help='Input image center crop pct')
+parser.add_argument('--mean', type=float, nargs='+', default=None, metavar='MEAN',
+                    help='Override mean pixel value of dataset')
+parser.add_argument('--std', type=float,  nargs='+', default=None, metavar='STD',
+                    help='Override std deviation of of dataset')
+parser.add_argument('--num_classes', type=int, default=1000, metavar='N',
+                    help='number of label classes (default: 1000)')
+parser.add_argument('--cls_label_path_val', default=None, type=str,
+                    help='dataset label path')
+parser.add_argument('--interpolation', default='', type=str, metavar='NAME',
+                    help='Image resize interpolation type (overrides model)')
+parser.add_argument('--resume', default='',
+                    help='resume from checkpoint')
+parser.add_argument('--dist_eval', action='store_true', default=False,
+                    help='Enabling distributed evaluation')
 
 
 def main(args):
@@ -58,10 +60,10 @@ def main(args):
     else:
         sampler_val = BatchSampler(dataset=dataset_val, batch_size=args.batch_size)
 
-    data_loader_val = DataLoader(dataset_val, batch_sampler=sampler_val, num_workers=args.num_workers)
+    data_loader_val = DataLoader(dataset_val, batch_sampler=sampler_val, num_workers=args.workers)
 
     model = models.__dict__[args.model](
-        num_classes=args.nb_classes)
+        num_classes=args.num_classes)
 
     model = paddle.DataParallel(model)
     model_without_ddp = model._layers
@@ -75,7 +77,5 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('MicroNet training and evaluation script', parents=[get_args_parser()])
     args = parser.parse_args()
-    args.eval = True
     main(args)

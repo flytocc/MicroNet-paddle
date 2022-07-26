@@ -107,20 +107,22 @@ pip install -r requirements.txt
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 python -m paddle.distributed.launch --gpus="0,1,2,3" \
     main.py \
-    --model micronet_m0 \
-    --batch_size 512 \
-    --aa '' --smoothing 0 --train_interpolation 'bilinear' --reprob 0 \
-    --mixup 0 --cutmix 0 \
-    --opt momentum --weight_decay 3e-5 --min_lr 0 --warmup_epochs 0 \
-    --lr 0.2 --epochs 600 \
-    --data_path /path/to/imagenet/ \
+    /path/to/imagenet/ \
     --cls_label_path_train /path/to/train_list.txt \
     --cls_label_path_val /path/to/val_list.txt \
-    --output_dir output/micronet_m0/ \
+    --model micronet_m0 \
+    --batch_size 512 \
+    --interpolation bilinear \
+    --weight_decay 3e-5 \
+    --lr 0.2 --warmup_lr 0 --min_lr 0 \
+    --epochs 600 --warmup_epochs 0 --cooldown_epochs 0 \
+    --reprob 0 --smoothing 0 \
+    --workers 8 \
+    --output output/micronet_m0/ \
     --dist_eval
 ```
 
-ps: 如果未指定`cls_label_path_train`/`cls_label_path_val`，会读取`data_path`下train/val里的图片作为train-set/val-set。
+ps: 如果未指定`cls_label_path_train`/`cls_label_path_val`，会读取`data_dir`下train/val里的图片作为train-set/val-set。
 
 
 部分训练日志如下所示。
@@ -134,23 +136,24 @@ ps: 如果未指定`cls_label_path_train`/`cls_label_path_val`，会读取`data_
 
 ``` shell
 python eval.py \
-    --model micronet_m0 \
-    --batch_size 256 \
-    --train_interpolation 'bilinear' \
-    --data_path /path/to/imagenet/ \
+    /path/to/imagenet/ \
     --cls_label_path_val /path/to/val_list.txt \
+    --model micronet_m0 \
+    --batch_size 512 \
+    --interpolation bilinear \
     --resume $TRAINED_MODEL
 ```
 
-ps: 如果未指定`cls_label_path_val`，会读取`data_path`/val里的图片作为val-set。
+ps: 如果未指定`cls_label_path_val`，会读取`data_dir`/val里的图片作为val-set。
 
 
 ### 4.3 模型预测
 
 ```shell
 python predict.py \
-    --model micronet_m0 \
     --infer_imgs ./demo/ILSVRC2012_val_00020010.JPEG \
+    --model micronet_m0 \
+    --interpolation bilinear \
     --resume $TRAINED_MODEL
 ```
 
@@ -160,20 +163,20 @@ python predict.py \
 
 最终输出结果为
 ```
-[{'class_ids': [178, 690, 176, 345, 246], 'scores': [0.8150453567504883, 0.07403502613306046, 0.028849413618445396, 0.021240053698420525, 0.005981378722935915], 'file_name': './demo/ILSVRC2012_val_00020010.JPEG', 'label_names': ['Weimaraner', 'oxcart', 'Saluki, gazelle hound', 'ox', 'Great Dane']}]
+[{'class_ids': [178, 690, 176, 345, 246], 'scores': [0.7426400184631348, 0.08124781399965286, 0.0610598586499691, 0.021242130547761917, 0.015705309808254242], 'file_name': './demo/ILSVRC2012_val_00020010.JPEG', 'label_names': ['Weimaraner', 'oxcart', 'Saluki, gazelle hound', 'ox', 'Great Dane']}]
 ```
-表示预测的类别为`Weimaraner（魏玛猎狗）`，ID是`178`，置信度为`0.8150453567504883`。
+表示预测的类别为`Weimaraner（魏玛猎狗）`，ID是`178`，置信度为`0.7426400184631348`。
 
 ### 4.4 模型导出
 
 ```shell
 python export_model.py \
     --model micronet_m0 \
-    --output_dir /path/to/save/export_model/ \
+    --output /path/to/save/export_model/ \
     --resume $TRAINED_MODEL
 
 python infer.py \
-    --train_interpolation 'bilinear' \
+    --interpolation bilinear \
     --model_file /path/to/save/export_model/output/model.pdmodel \
     --params_file /path/to/save/export_model/output/model.pdiparams \
     --input_file ./demo/ILSVRC2012_val_00020010.JPEG
@@ -181,9 +184,9 @@ python infer.py \
 
 输出结果为
 ```
-[{'class_ids': [178, 690, 176, 345, 246], 'scores': [0.8150453567504883, 0.07403502613306046, 0.028849413618445396, 0.021240053698420525, 0.005981378722935915], 'file_name': './demo/ILSVRC2012_val_00020010.JPEG', 'label_names': ['Weimaraner', 'oxcart', 'Saluki, gazelle hound', 'ox', 'Great Dane']}]
+[{'class_ids': [178, 690, 176, 345, 246], 'scores': [0.7374158501625061, 0.08495301008224487, 0.06033390760421753, 0.021610060706734657, 0.016762400045990944], 'file_name': './demo/ILSVRC2012_val_00020010.JPEG', 'label_names': ['Weimaraner', 'oxcart', 'Saluki, gazelle hound', 'ox', 'Great Dane']}]
 ```
-表示预测的类别为`Weimaraner（魏玛猎狗）`，ID是`178`，置信度为`0.8150453567504883`。与predict.py结果的误差在正常范围内。
+表示预测的类别为`Weimaraner（魏玛猎狗）`，ID是`178`，置信度为`0.7374158501625061`。与predict.py结果的误差在正常范围内。
 
 
 ## 5. 代码结构
@@ -230,9 +233,10 @@ TIPC结果：
 如果运行成功，在终端中会显示下面的内容，具体的日志也会输出到`test_tipc/output/`文件夹中的文件中。
 
 ```
-Run successfully with command - python3 main.py --model=micronet_m0 --aa='' --smoothing=0 --train_interpolation=bilinear --reprob=0 --mixup=0 --cutmix=0 --lr=0.2 --data_path=./dataset/ILSVRC2012/ --cls_label_path_train=./dataset/ILSVRC2012/train_list.txt --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --dist_eval    --output_dir=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0 --epochs=2     --batch_size=8 !
-Run successfully with command - python3 eval.py --model=micronet_m0 --train_interpolation=bilinear --data_path=./dataset/ILSVRC2012/ --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --resume=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0/checkpoint-latest.pd !
-Run successfully with command - python3 export_model.py --model=micronet_m0 --resume=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0/checkpoint-latest.pd --output=./test_tipc/output/norm_train_gpus_0_autocast_null !
+Run successfully with command - python3 main.py ./dataset/ILSVRC2012/ --cls_label_path_train=./dataset/ILSVRC2012/train_list.txt --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --model=micronet_m0 --interpolation=bilinear --weight_decay=3e-5 --lr=0.2 --warmup_lr=0 --min_lr=0 --warmup_epochs=0 --cooldown_epochs=0 --reprob=0 --smoothing=0 --dist_eval    --output=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0 --epochs=2     --batch_size=8   !
+Run successfully with command - python3 eval.py ./dataset/ILSVRC2012/ --cls_label_path_val=./dataset/ILSVRC2012/val_list.txt --model=micronet_m0 --interpolation=bilinear --resume=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0/checkpoint-latest.pd    !
+Run successfully with command - python3 export_model.py --model=micronet_m0 --resume=./test_tipc/output/norm_train_gpus_0_autocast_null/micronet_m0/checkpoint-latest.pd --output=./test_tipc/output/norm_train_gpus_0_autocast_null!
+Run successfully with command - python3 infer.py --use_gpu=True --use_tensorrt=False --precision=fp32 --model_file=./test_tipc/output/norm_train_gpus_0_autocast_null/model.pdmodel --batch_size=1 --input_file=./dataset/ILSVRC2012/val  --params_file=./test_tipc/output/norm_train_gpus_0_autocast_null/model.pdiparams > ./test_tipc/output/python_infer_gpu_usetrt_False_precision_fp32_batchsize_1.log 2>&1 !
 ......
 ```
 
