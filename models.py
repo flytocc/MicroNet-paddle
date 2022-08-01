@@ -223,7 +223,7 @@ class DYShiftMax(nn.Layer):
         y = (y - 0.5) * self.act_max
 
         n2, c2, h2, w2 = x_out.shape
-        x2 = x_out[paddle.arange(n2).unsqueeze(1), self.index]
+        x2 = paddle.index_select(x_out, self.index, axis=1)
 
         if self.exp == 4:
             a1, b1, a2, b2 = paddle.split(y, 4, axis=1)
