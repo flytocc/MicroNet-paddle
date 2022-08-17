@@ -1,30 +1,27 @@
 import argparse
 import datetime
-import random
-import os
-import numpy as np
-import time
 import json
-
+import os
+import random
+import time
 from pathlib import Path
+
+import numpy as np
+import yaml
 
 import paddle
 import paddle.nn as nn
 import paddle.optimizer as optim
 from paddle.io import BatchSampler, DataLoader, DistributedBatchSampler
-import yaml
 
 import util.misc as misc
 from util.data import Mixup
 from util.datasets import build_dataset
 from util.loss import LabelSmoothingCrossEntropy
-from util.misc import NativeScalerWithGradNormCount as NativeScaler
-from util.misc import WandbLogger
 from util.model_ema import ModelEma, unwrap_model
-from engine import train_one_epoch, evaluate
+from engine import evaluate, train_one_epoch
 
 import models
-
 
 # The first arg parser parses out only the --config argument, this argument is used to
 # load a yaml file containing key-values that override the defaults for the main parser below
@@ -157,7 +154,7 @@ group.add_argument('--seed', type=int, default=42, metavar='S',
                     help='random seed (default: 42)')
 group.add_argument('--log_interval', type=int, default=50, metavar='N',
                     help='how many batches to wait before logging training status')
-group.add_argument('-j', '--workers', type=int, default=4, metavar='N',
+group.add_argument('-j', '--num_workers', type=int, default=4, metavar='N',
                     help='how many training processes to use (default: 4)')
 group.add_argument('--amp', action='store_true', default=False,
                     help='use NVIDIA Apex AMP or Native AMP for mixed precision training')
@@ -197,7 +194,7 @@ def main(args):
     misc.init_distributed_mode(args)
 
     if misc.get_rank() == 0 and args.log_wandb and not args.eval:
-        log_writer = WandbLogger(args, entity=args.wandb_entity, project=args.wandb_project)
+        log_writer = misc.WandbLogger(args, entity=args.wandb_entity, project=args.wandb_project)
     else:
         log_writer = None
 
@@ -217,7 +214,7 @@ def main(args):
     dataset_val = build_dataset(is_train=False, args=args)
 
     validation_batch_size = args.validation_batch_size or args.batch_size
-    sampler_train = DistributedBatchSampler(dataset_train, validation_batch_size, shuffle=True)
+    sampler_train = DistributedBatchSampler(dataset_train, args.batch_size, shuffle=not args.debug, drop_last=True)
     if args.dist_eval:
         num_tasks = misc.get_world_size()
         if len(dataset_val) % num_tasks != 0:
@@ -228,8 +225,8 @@ def main(args):
     else:
         sampler_val = BatchSampler(dataset=dataset_val, batch_size=validation_batch_size)
 
-    data_loader_train = DataLoader(dataset_train, batch_sampler=sampler_train, num_workers=args.workers)
-    data_loader_val = DataLoader(dataset_val, batch_sampler=sampler_val, num_workers=args.workers)
+    data_loader_train = DataLoader(dataset_train, batch_sampler=sampler_train, num_workers=args.num_workers)
+    data_loader_val = DataLoader(dataset_val, batch_sampler=sampler_val, num_workers=args.num_workers)
 
     mixup_fn = None
     mixup_active = args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None
@@ -263,17 +260,19 @@ def main(args):
         else:
             optimizer = optim.SGD(**optim_kwargs)
     elif args.opt == 'adamw':
-        decay_dict = {param.name: not (len(param.shape) == 1 or name.endswith(".bias"))
+        decay_skip = model.no_weight_decay() if hasattr(model, 'no_weight_decay') else set()
+        # following timm: set wd as 0 for bias and norm layers
+        decay_dict = {param.name: not (len(param.shape) == 1 or name.endswith(".bias") or name in decay_skip)
                       for name, param in model.named_parameters()}
         bete1, beta2 = args.opt_betas or (0.9, 0.999)
         optimizer = optim.AdamW(
             beta1=bete1, beta2=beta2,
-            epsilon=args.opt_eps,
+            epsilon=args.opt_eps or 1e-8,
             apply_decay_param_fun=lambda n: decay_dict[n],
             **optim_kwargs)
     else:
         raise NotImplementedError
-    loss_scaler = NativeScaler() if args.amp else None
+    loss_scaler = misc.NativeScalerWithGradNormCount() if args.amp else None
 
     model_ema = None
     if args.model_ema:

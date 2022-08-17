@@ -114,10 +114,10 @@ python -m paddle.distributed.launch --gpus="0,1,2,3" \
     --batch_size 512 \
     --interpolation bilinear \
     --weight_decay 3e-5 \
-    --lr 0.2 --warmup_lr 0 --min_lr 0 \
+    --lr 0.2 --min_lr 0 \
     --epochs 600 --warmup_epochs 0 --cooldown_epochs 0 \
     --reprob 0 --smoothing 0 \
-    --workers 8 \
+    --num_workers 8 \
     --output output/micronet_m0/ \
     --dist_eval
 ```
