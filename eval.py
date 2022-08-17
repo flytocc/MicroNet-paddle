@@ -18,7 +18,7 @@ parser.add_argument('--val_split', metavar='NAME', default='val',
                     help='dataset split (default: validation)')
 parser.add_argument('--model', default=None, type=str, metavar='MODEL',
                     help='Name of model to train (default: None')
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
+parser.add_argument('-j', '--num_workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 2)')
 parser.add_argument('-b', '--batch_size', default=256, type=int,
                     metavar='N', help='mini-batch size (default: 256)')
@@ -60,7 +60,7 @@ def main(args):
     else:
         sampler_val = BatchSampler(dataset=dataset_val, batch_size=args.batch_size)
 
-    data_loader_val = DataLoader(dataset_val, batch_sampler=sampler_val, num_workers=args.workers)
+    data_loader_val = DataLoader(dataset_val, batch_sampler=sampler_val, num_workers=args.num_workers)
 
     model = models.__dict__[args.model](
         num_classes=args.num_classes)

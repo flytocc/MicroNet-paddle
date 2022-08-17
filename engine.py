@@ -1,16 +1,17 @@
 import math
+import os
 import sys
 from typing import Iterable, Optional
 
 import paddle
+import paddle.amp.auto_cast as amp_cast
 import paddle.nn as nn
 import paddle.optimizer as optim
 from paddle.metric import accuracy
 
-from util.data import Mixup
-
-import util.misc as misc
 import util.lr_sched as lr_sched
+import util.misc as misc
+from util.data import Mixup
 from util.model_ema import ModelEma
 
 
@@ -29,7 +30,7 @@ def train_one_epoch(model: nn.Layer, criterion: nn.Layer,
                     num_training_steps_per_epoch=None, amp=False,
                     args=None):
     model.train()
-    metric_logger = misc.MetricLogger(delimiter="  ")
+    metric_logger = misc.MetricLogger(delimiter="  ", log_file=os.path.join(args.output, "train.log"))
     metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
 
@@ -51,7 +52,7 @@ def train_one_epoch(model: nn.Layer, criterion: nn.Layer,
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
 
-        with paddle.amp.auto_cast(enable=amp):
+        with amp_cast(enable=amp):
             outputs = model(samples)
             loss = criterion(outputs, targets)
 
@@ -110,7 +111,7 @@ def evaluate(data_loader, model, amp=False):
         target = batch[-1]
 
         # compute output
-        with paddle.amp.auto_cast(enable=amp):
+        with amp_cast(enable=amp):
             output = model(images)
             loss = criterion(output, target)
 

@@ -99,10 +99,6 @@ def parse_file_paths(input_path: str) -> list:
 
 
 def main(args):
-    model_name = 'MicroNet'
-    print(f"Inference model({model_name})...")
-    # InferenceHelper = build_inference_helper(cfg.INFERENCE)
-
     inference_config, predictor = create_paddle_predictor(args)
 
     # get the absolute file path(s) to be processed
@@ -115,7 +111,7 @@ def main(args):
         import auto_log
         pid = os.getpid()
         autolog = auto_log.AutoLogger(
-            model_name=model_name,
+            model_name='paddle',
             model_precision=args.precision,
             batch_size=args.batch_size,
             data_shape="dynamic",

@@ -28,7 +28,7 @@ def main(args):
 
     misc.load_model(args, model)
 
-    shape = [1, 3, args.input_size, args.input_size]
+    shape = [-1, 3, args.input_size, args.input_size]
 
     model.eval()
     model = paddle.jit.to_static(
