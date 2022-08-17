@@ -5,6 +5,7 @@ from typing import Iterable, Optional
 import paddle
 import paddle.nn as nn
 import paddle.optimizer as optim
+from paddle.metric import accuracy
 
 from util.data import Mixup
 
@@ -113,7 +114,8 @@ def evaluate(data_loader, model, amp=False):
             output = model(images)
             loss = criterion(output, target)
 
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        acc1 = accuracy(output, target.unsqueeze(-1), k=1)
+        acc5 = accuracy(output, target.unsqueeze(-1), k=5)
 
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
@@ -125,13 +127,3 @@ def evaluate(data_loader, model, amp=False):
           .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the accuracy over the k top predictions for the specified values of k"""
-    maxk = min(max(topk), output.shape[1])
-    batch_size = target.shape[0]
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred == target.reshape([1, -1]).expand_as(pred)
-    return [correct[:min(k, maxk)].reshape([-1]).cast('float32').sum(0) * 100. / batch_size for k in topk]

@@ -73,7 +73,7 @@ def main(args):
     misc.load_model(args, model_without_ddp)
 
     test_stats = evaluate(data_loader_val, model)
-    print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+    print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']}%")
 
 
 if __name__ == '__main__':
