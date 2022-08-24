@@ -8,7 +8,7 @@ import paddle.nn.functional as F
 from paddle import inference
 from paddle.inference import Config, create_predictor
 
-from util.data import create_transform, IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
+from data import create_transform, IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
 
 def str2bool(v):

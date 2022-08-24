@@ -3,7 +3,7 @@
 Originally inspired by impl at https://github.com/zhunzhong07/Random-Erasing, Apache 2.0
 Copyright Zhun Zhong & Liang Zheng
 
-Hacked together by / Copyright 2020 Ross Wightman
+Hacked together by / Copyright 2019, Ross Wightman
 """
 import random
 import math
@@ -17,9 +17,9 @@ def _get_pixels(per_pixel, rand_color, patch_size, dtype=paddle.float32):
     if per_pixel:
         return paddle.normal(shape=patch_size).astype(dtype)
     elif rand_color:
-        return paddle.normal(shape=[patch_size[0], 1, 1]).astype(dtype)
+        return paddle.normal(shape=(patch_size[0], 1, 1)).astype(dtype)
     else:
-        return paddle.zeros([patch_size[0], 1, 1], dtype=dtype)
+        return paddle.zeros(shape=(patch_size[0], 1, 1), dtype=dtype)
 
 
 class RandomErasing:
@@ -54,15 +54,15 @@ class RandomErasing:
         self.min_count = min_count
         self.max_count = max_count or min_count
         self.num_splits = num_splits
-        mode = mode.lower()
+        self.mode = mode.lower()
         self.rand_color = False
         self.per_pixel = False
-        if mode == 'rand':
+        if self.mode == 'rand':
             self.rand_color = True  # per block random normal
-        elif mode == 'pixel':
+        elif self.mode == 'pixel':
             self.per_pixel = True  # per pixel random normal
         else:
-            assert not mode or mode == 'const'
+            assert not self.mode or self.mode == 'const'
 
     def _erase(self, img, chan, img_h, img_w, dtype):
         if random.random() > self.probability:
@@ -80,8 +80,7 @@ class RandomErasing:
                     top = random.randint(0, img_h - h)
                     left = random.randint(0, img_w - w)
                     img[:, top:top + h, left:left + w] = _get_pixels(
-                        self.per_pixel, self.rand_color, (chan, h, w),
-                        dtype=dtype)
+                        self.per_pixel, self.rand_color, (chan, h, w), dtype=dtype)
                     break
 
     def __call__(self, input):
@@ -94,3 +93,9 @@ class RandomErasing:
             for i in range(batch_start, batch_size):
                 self._erase(input[i], chan, img_h, img_w, input.dtype)
         return input
+
+    def __repr__(self):
+        # NOTE simplified state for repr
+        fs = self.__class__.__name__ + f'(p={self.probability}, mode={self.mode}'
+        fs += f', count=({self.min_count}, {self.max_count}))'
+        return fs

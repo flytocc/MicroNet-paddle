@@ -8,7 +8,7 @@ CutMix: Regularization Strategy to Train Strong Classifiers with Localizable Fea
 Code Reference:
 CutMix: https://github.com/clovaai/CutMix-PyTorch
 
-Hacked together by / Copyright 2020 Ross Wightman
+Hacked together by / Copyright 2019, Ross Wightman
 """
 import numpy as np
 import paddle
@@ -230,11 +230,12 @@ class FastCollateMixup(Mixup):
     A Mixup impl that's performed while collating the batches.
     """
 
-    def _mix_elem_collate(self, output, batch, half=False):
+    def _mix_elem_collate(self, batch, half=False):
         batch_size = len(batch)
         num_elem = batch_size // 2 if half else batch_size
-        assert len(output) == num_elem
+        shape = (num_elem, *batch[0][0].shape)
         lam_batch, use_cutmix = self._params_per_elem(num_elem)
+        output = [None] * num_elem
         for i in range(num_elem):
             j = batch_size - i - 1
             lam = lam_batch[i]
@@ -242,7 +243,7 @@ class FastCollateMixup(Mixup):
             if lam != 1.:
                 if use_cutmix[i]:
                     (yl, yh, xl, xh), lam = cutmix_bbox_and_lam(
-                        output.shape, lam, ratio_minmax=self.cutmix_minmax, correct_lam=self.correct_lam)
+                        shape, lam, ratio_minmax=self.cutmix_minmax, correct_lam=self.correct_lam)
                     if  yl < yh and xl < xh:
                         if not half:
                             mixed = mixed.copy()
@@ -251,14 +252,18 @@ class FastCollateMixup(Mixup):
                 else:
                     mixed = mixed.astype(np.float32) * lam + batch[j][0].astype(np.float32) * (1 - lam)
                     np.rint(mixed, out=mixed)
-            output[i] += paddle.to_tensor(mixed.astype(np.uint8))
+            output[i] = mixed.astype(np.uint8)
         if half:
             lam_batch = np.concatenate((lam_batch, np.ones(num_elem)))
-        return paddle.to_tensor(lam_batch).unsqueeze(1)
+        output = paddle.to_tensor(np.stack(output, axis=0), dtype=paddle.uint8)
+        lam_batch = paddle.to_tensor(lam_batch).unsqueeze(1)
+        return output, lam_batch
 
-    def _mix_pair_collate(self, output, batch):
+    def _mix_pair_collate(self, batch):
         batch_size = len(batch)
+        shape = (batch_size, *batch[0][0].shape)
         lam_batch, use_cutmix = self._params_per_elem(batch_size // 2)
+        output = [None] * batch_size
         for i in range(batch_size // 2):
             j = batch_size - i - 1
             lam = lam_batch[i]
@@ -268,7 +273,7 @@ class FastCollateMixup(Mixup):
             if lam < 1.:
                 if use_cutmix[i]:
                     (yl, yh, xl, xh), lam = cutmix_bbox_and_lam(
-                        output.shape, lam, ratio_minmax=self.cutmix_minmax, correct_lam=self.correct_lam)
+                        shape, lam, ratio_minmax=self.cutmix_minmax, correct_lam=self.correct_lam)
                     if  yl < yh and xl < xh:
                         patch_i = mixed_i[:, yl:yh, xl:xh].copy()
                         mixed_i[:, yl:yh, xl:xh] = mixed_j[:, yl:yh, xl:xh]
@@ -280,17 +285,20 @@ class FastCollateMixup(Mixup):
                     mixed_i = mixed_temp
                     np.rint(mixed_j, out=mixed_j)
                     np.rint(mixed_i, out=mixed_i)
-            output[i] += paddle.to_tensor(mixed_i.astype(np.uint8))
-            output[j] += paddle.to_tensor(mixed_j.astype(np.uint8))
-        lam_batch = np.concatenate((lam_batch, lam_batch[::-1]))
-        return paddle.to_tensor(lam_batch).unsqueeze(1)
+            output[i] = mixed_i.astype(np.uint8)
+            output[j] = mixed_j.astype(np.uint8)
+        output = paddle.to_tensor(np.stack(output, axis=0), dtype=paddle.uint8)
+        lam_batch = paddle.to_tensor(np.concatenate((lam_batch, lam_batch[::-1]))).unsqueeze(1)
+        return output, lam_batch
 
-    def _mix_batch_collate(self, output, batch):
+    def _mix_batch_collate(self, batch):
         batch_size = len(batch)
+        shape = (batch_size, *batch[0][0].shape)
         lam, use_cutmix = self._params_per_batch()
         if use_cutmix:
             (yl, yh, xl, xh), lam = cutmix_bbox_and_lam(
-                output.shape, lam, ratio_minmax=self.cutmix_minmax, correct_lam=self.correct_lam)
+                shape, lam, ratio_minmax=self.cutmix_minmax, correct_lam=self.correct_lam)
+        output = [None] * batch_size
         for i in range(batch_size):
             j = batch_size - i - 1
             mixed = batch[i][0]
@@ -302,8 +310,9 @@ class FastCollateMixup(Mixup):
                 else:
                     mixed = mixed.astype(np.float32) * lam + batch[j][0].astype(np.float32) * (1 - lam)
                     np.rint(mixed, out=mixed)
-            output[i] += paddle.to_tensor(mixed.astype(np.uint8))
-        return lam
+            output[i] = mixed.astype(np.uint8)
+        output = paddle.to_tensor(np.stack(output, axis=0), dtype=paddle.uint8)
+        return output, lam
 
     def __call__(self, batch, _=None):
         batch_size = len(batch)
@@ -311,15 +320,13 @@ class FastCollateMixup(Mixup):
         half = 'half' in self.mode
         if half:
             batch_size //= 2
-        output = paddle.zeros((batch_size, *batch[0][0].shape), dtype=paddle.uint8)
         if self.mode == 'elem' or self.mode == 'half':
-            lam = self._mix_elem_collate(output, batch, half=half)
+            output, lam = self._mix_elem_collate(batch, half=half)
         elif self.mode == 'pair':
-            lam = self._mix_pair_collate(output, batch)
+            output, lam = self._mix_pair_collate(batch)
         else:
-            lam = self._mix_batch_collate(output, batch)
+            output, lam = self._mix_batch_collate(batch)
         target = paddle.to_tensor([b[1] for b in batch], dtype=paddle.int64)
         target = mixup_target(target, self.num_classes, lam, self.label_smoothing)
         target = target[:batch_size]
         return output, target
-

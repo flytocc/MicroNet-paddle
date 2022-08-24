@@ -1,6 +1,7 @@
 import math
 import os
 import sys
+from collections import deque
 from typing import Iterable, Optional
 
 import paddle
@@ -11,8 +12,8 @@ from paddle.metric import accuracy
 
 import util.lr_sched as lr_sched
 import util.misc as misc
-from util.data import Mixup
-from util.model_ema import ModelEma
+from data import Mixup
+from util.model_ema import ExponentialMovingAverage as ModelEma
 
 
 def clear_grad_(optimizer: optim.Optimizer):
@@ -28,18 +29,23 @@ def train_one_epoch(model: nn.Layer, criterion: nn.Layer,
                     model_ema: Optional[ModelEma] = None,
                     mixup_fn: Optional[Mixup] = None, log_writer=None,
                     num_training_steps_per_epoch=None, amp=False,
-                    args=None):
-    model.train()
+                    update_freq=1, args=None):
+
+    if args.mixup_off_epoch and epoch >= args.mixup_off_epoch:
+        if args.prefetcher and data_loader.mixup_enabled:
+            data_loader.mixup_enabled = False
+        elif mixup_fn is not None:
+            mixup_fn.mixup_enabled = False
+
     metric_logger = misc.MetricLogger(delimiter="  ", log_file=os.path.join(args.output, "train.log"))
     metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    header = 'Epoch: [{}]'.format(epoch)
 
-    print_freq = args.log_interval
-    update_freq = args.update_freq
-
+    model.train()
     clear_grad_(optimizer)
 
-    for data_iter_step, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+    loss_value_reduce = deque(maxlen=update_freq)
+    header = 'Epoch: [{}]'.format(epoch)
+    for data_iter_step, (samples, targets) in enumerate(metric_logger.log_every(data_loader, args.log_interval, header)):
         if num_training_steps_per_epoch is not None and data_iter_step // update_freq >= num_training_steps_per_epoch:
             continue
 
@@ -49,8 +55,9 @@ def train_one_epoch(model: nn.Layer, criterion: nn.Layer,
                 data_iter_step // update_freq / num_training_steps_per_epoch + epoch, args)
             optimizer.set_lr(lr)
 
-        if mixup_fn is not None:
-            samples, targets = mixup_fn(samples, targets)
+        if not args.prefetcher:
+            if mixup_fn is not None:
+                samples, targets = mixup_fn(samples, targets)
 
         with amp_cast(enable=amp):
             outputs = model(samples)
@@ -82,9 +89,9 @@ def train_one_epoch(model: nn.Layer, criterion: nn.Layer,
         metric_logger.update(loss=loss_value)
         metric_logger.update(lr=lr)
 
-        loss_value_reduce = misc.all_reduce_mean(loss_value)
+        loss_value_reduce.append(misc.all_reduce_mean(loss_value))
         if log_writer is not None and (data_iter_step + 1) % update_freq == 0:
-            metrics = {'loss': loss_value_reduce, 'lr': lr}
+            metrics = {'loss': sum(loss_value_reduce) / update_freq, 'lr': lr}
             if amp:
                 metrics.update({'norm': norm, 'scale': scale})
             log_writer.update(metrics)
@@ -106,7 +113,7 @@ def evaluate(data_loader, model, amp=False):
     # switch to evaluation mode
     model.eval()
 
-    for batch in metric_logger.log_every(data_loader, 10, header):
+    for batch in metric_logger.log_every(data_loader, 20, header):
         images = batch[0]
         target = batch[-1]
 
@@ -122,6 +129,7 @@ def evaluate(data_loader, model, amp=False):
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
         metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'

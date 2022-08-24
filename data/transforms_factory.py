@@ -9,8 +9,57 @@ from paddle.vision import transforms
 
 from .constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, DEFAULT_CROP_PCT
 from .auto_augment import rand_augment_transform, augment_and_mix_transform, auto_augment_transform
-from .transforms import _pil_interp, RandomResizedCropAndInterpolation, ToNumpy, ToTensor
+from .transforms import str_to_pil_interp, RandomResizedCropAndInterpolation, ToNumpy
 from .random_erasing import RandomErasing
+
+
+class RandomHorizontalFlip(transforms.RandomHorizontalFlip):
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(prob={self.prob})"
+
+
+class RandomVerticalFlip(transforms.RandomVerticalFlip):
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(prob={self.prob})"
+
+
+class ColorJitter(transforms.ColorJitter):
+
+    def __repr__(self) -> str:
+        s = (
+            f"{self.__class__.__name__}("
+            f"brightness={self.brightness}"
+            f", contrast={self.contrast}"
+            f", saturation={self.saturation}"
+            f", hue={self.hue})"
+        )
+        return s
+
+
+class Resize(transforms.Resize):
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(size={self.size}, interpolation={self.interpolation})"
+
+
+class CenterCrop(transforms.CenterCrop):
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(size={self.size})"
+
+
+class Normalize(transforms.Normalize):
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(mean={self.mean}, std={self.std})"
+
+
+class ToTensor(transforms.ToTensor):
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
 
 
 def transforms_noaug_train(
@@ -24,16 +73,16 @@ def transforms_noaug_train(
         # random interpolation not supported with no-aug
         interpolation = 'bilinear'
     tfl = [
-        transforms.Resize(img_size, interpolation),
-        transforms.CenterCrop(img_size)
+        Resize(img_size, interpolation),
+        CenterCrop(img_size)
     ]
     if use_prefetcher:
         # prefetcher and collate will handle tensor conversion and norm
         tfl += [ToNumpy()]
     else:
         tfl += [
-            transforms.ToTensor(),
-            transforms.Normalize(mean=mean, std=std)
+            ToTensor(),
+            Normalize(mean=mean, std=std)
         ]
     return transforms.Compose(tfl)
 
@@ -68,14 +117,14 @@ def transforms_imagenet_train(
     primary_tfl = [
         RandomResizedCropAndInterpolation(img_size, scale=scale, ratio=ratio, interpolation=interpolation)]
     if hflip > 0.:
-        primary_tfl += [transforms.RandomHorizontalFlip(prob=hflip)]
+        primary_tfl += [RandomHorizontalFlip(prob=hflip)]
     if vflip > 0.:
-        primary_tfl += [transforms.RandomVerticalFlip(prob=vflip)]
+        primary_tfl += [RandomVerticalFlip(prob=vflip)]
 
     secondary_tfl = []
     if auto_augment:
         assert isinstance(auto_augment, str)
-        if isinstance(img_size, tuple):
+        if isinstance(img_size, (tuple, list)):
             img_size_min = min(img_size)
         else:
             img_size_min = img_size
@@ -84,7 +133,7 @@ def transforms_imagenet_train(
             img_mean=tuple([min(255, round(255 * x)) for x in mean]),
         )
         if interpolation and interpolation != 'random':
-            aa_params['interpolation'] = _pil_interp(interpolation)
+            aa_params['interpolation'] = str_to_pil_interp(interpolation)
         if auto_augment.startswith('rand'):
             secondary_tfl += [rand_augment_transform(auto_augment, aa_params)]
         elif auto_augment.startswith('augmix'):
@@ -101,7 +150,7 @@ def transforms_imagenet_train(
         else:
             # if it's a scalar, duplicate for brightness, contrast, and saturation, no hue
             color_jitter = (float(color_jitter),) * 3
-        secondary_tfl += [transforms.ColorJitter(*color_jitter)]
+        secondary_tfl += [ColorJitter(*color_jitter)]
 
     final_tfl = []
     if use_prefetcher:
@@ -109,8 +158,8 @@ def transforms_imagenet_train(
         final_tfl += [ToNumpy()]
     else:
         final_tfl += [
-            transforms.ToTensor(),
-            transforms.Normalize(mean=mean, std=std)
+            ToTensor(),
+            Normalize(mean=mean, std=std)
         ]
         if re_prob > 0.:
             final_tfl.append(
@@ -131,7 +180,7 @@ def transforms_imagenet_eval(
         std=IMAGENET_DEFAULT_STD):
     crop_pct = crop_pct or DEFAULT_CROP_PCT
 
-    if isinstance(img_size, tuple):
+    if isinstance(img_size, (tuple, list)):
         assert len(img_size) == 2
         if img_size[-1] == img_size[-2]:
             # fall-back to older behaviour so Resize scales to shortest edge if target is square
@@ -142,16 +191,16 @@ def transforms_imagenet_eval(
         scale_size = int(math.floor(img_size / crop_pct))
 
     tfl = [
-        transforms.Resize(scale_size, interpolation),
-        transforms.CenterCrop(img_size),
+        Resize(scale_size, interpolation),
+        CenterCrop(img_size),
     ]
     if use_prefetcher:
         # prefetcher and collate will handle tensor conversion and norm
         tfl += [ToNumpy()]
     else:
         tfl += [
-            transforms.ToTensor(),
-            transforms.Normalize(mean=mean, std=std)
+            ToTensor(),
+            Normalize(mean=mean, std=std)
         ]
 
     return transforms.Compose(tfl)
@@ -179,7 +228,7 @@ def create_transform(
         tf_preprocessing=False,
         separate=False):
 
-    if isinstance(input_size, tuple):
+    if isinstance(input_size, (tuple, list)):
         img_size = input_size[-2:]
     else:
         img_size = input_size

@@ -439,6 +439,12 @@ class MicroNet(nn.Layer):
         return x
 
 
+def create_model(model_name, **kwargs):
+    create_fn = eval(model_name)
+    model = create_fn(**kwargs)
+    return model
+
+
 def micronet_m0(**kwargs):
     msnx_dy6_exp4_4M_221 = [
         #s, n,  c, ks, c1, c2, g1, g2, c3, g3, g4,y1,y2,y3,r

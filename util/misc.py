@@ -9,34 +9,36 @@ import paddle.amp as amp
 import paddle.distributed as dist
 from paddle.fluid.dygraph.parallel import ParallelEnv
 
-import wandb
+try:
+    import wandb
+    has_wandb = True
 
-from .model_ema import get_state_dict, load_checkpoint_for_ema
+    class WandbLogger(object):
 
+        def __init__(self, args, **kwargs):
+            wandb.init(config=args, **kwargs)
 
-class WandbLogger(object):
+        def set_step(self, step=None):
+            if step is not None:
+                self.step = step
+            else:
+                self.step += 1
 
-    def __init__(self, args, **kwargs):
-        wandb.init(config=args, **kwargs)
+        def update(self, metrics):
+            log_dict = dict()
+            for k, v in metrics.items():
+                if v is None:
+                    continue
+                if isinstance(v, paddle.Tensor):
+                    v = v.item()
+                log_dict[k] = v
+            wandb.log(log_dict, step=self.step)
 
-    def set_step(self, step=None):
-        if step is not None:
-            self.step = step
-        else:
-            self.step += 1
+        def flush(self):
+            pass
 
-    def update(self, metrics):
-        log_dict = dict()
-        for k, v in metrics.items():
-            if v is None:
-                continue
-            if isinstance(v, paddle.Tensor):
-                v = v.item()
-            log_dict[k] = v
-        wandb.log(log_dict, step=self.step)
-
-    def flush(self):
-        pass
+except ImportError:
+    has_wandb = False
 
 
 class SmoothedValue(object):
@@ -264,13 +266,19 @@ def get_rank():
     return dist.get_rank()
 
 
+def get_local_rank():
+    if not is_dist_avail_and_initialized():
+        return 0
+    return ParallelEnv().local_rank
+
+
 def is_main_process():
     return get_rank() == 0
 
 
-def init_distributed_mode(args):
+def init_distributed_mode():
     dist.init_parallel_env()
-    setup_for_distributed(is_main_process())
+    setup_for_distributed(get_local_rank() == 0)
 
 
 def save_on_master(*args, **kwargs):
@@ -287,7 +295,7 @@ def save_model(args, epoch, model_without_ddp, model_ema=None, optimizer=None, l
     if optimizer is not None:
         to_save['optimizer'] = optimizer.state_dict()
     if model_ema is not None:
-        to_save['model_ema'] = get_state_dict(model_ema)
+        to_save['model_ema'] = model_ema.state_dict()
     if loss_scaler is not None:
         to_save['scaler'] = loss_scaler.state_dict()
     os.makedirs(args.output, exist_ok=True)
@@ -302,7 +310,7 @@ def load_model(args, model_without_ddp, model_ema=None, optimizer=None, loss_sca
         if 'epoch' in checkpoint:
             args.start_epoch = checkpoint['epoch'] + 1
         if model_ema is not None and 'model_ema' in checkpoint:
-            load_checkpoint_for_ema(model_ema, checkpoint)
+            model_ema.set_state_dict(checkpoint['model_ema'])
         if optimizer is not None and 'optimizer' in checkpoint:
             optimizer.set_state_dict(checkpoint['optimizer'])
         if loss_scaler is not None and 'scaler' in checkpoint:

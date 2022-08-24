@@ -15,6 +15,9 @@ class ToNumpy:
         np_img = np.rollaxis(np_img, 2)  # HWC to CHW
         return np_img
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
 
 class ToTensor:
 
@@ -26,19 +29,39 @@ class ToTensor:
         if np_img.ndim < 3:
             np_img = np.expand_dims(np_img, axis=-1)
         np_img = np.rollaxis(np_img, 2)  # HWC to CHW
-        return paddle.cast(paddle.to_tensor(np_img), dtype=self.dtype)
+        return paddle.to_tensor(np_img, dtype=self.dtype)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
 
 
-def _pil_interp(method):
-    if method == 'bicubic':
-        return Image.BICUBIC
-    elif method == 'lanczos':
-        return Image.LANCZOS
-    elif method == 'hamming':
-        return Image.HAMMING
-    else:
-        # default bilinear, do we want to allow nearest?
-        return Image.BILINEAR
+# Pillow is deprecating the top-level resampling attributes (e.g., Image.BILINEAR) in
+# favor of the Image.Resampling enum. The top-level resampling attributes will be
+# removed in Pillow 10.
+if hasattr(Image, "Resampling"):
+    _pil_interpolation_to_str = {
+        Image.Resampling.NEAREST: 'nearest',
+        Image.Resampling.BILINEAR: 'bilinear',
+        Image.Resampling.BICUBIC: 'bicubic',
+        Image.Resampling.BOX: 'box',
+        Image.Resampling.HAMMING: 'hamming',
+        Image.Resampling.LANCZOS: 'lanczos',
+    }
+else:
+    _pil_interpolation_to_str = {
+        Image.NEAREST: 'nearest',
+        Image.BILINEAR: 'bilinear',
+        Image.BICUBIC: 'bicubic',
+        Image.BOX: 'box',
+        Image.HAMMING: 'hamming',
+        Image.LANCZOS: 'lanczos',
+    }
+
+_str_to_pil_interpolation = {b: a for a, b in _pil_interpolation_to_str.items()}
+
+
+def str_to_pil_interp(mode_str):
+    return _str_to_pil_interpolation[mode_str]
 
 
 _RANDOM_INTERPOLATION = ('bilinear', 'bicubic')
@@ -57,8 +80,8 @@ class RandomResizedCropAndInterpolation(transforms.RandomResizedCrop):
         return F.resize(cropped_img, self.size, interpolation)
 
     def __repr__(self):
-        if isinstance(self.interpolation, (tuple, list)):
-            interpolate_str = ' '.join(self.interpolation)
+        if self.interpolation == 'random':
+            interpolate_str = f'({" ".join(_RANDOM_INTERPOLATION)})'
         else:
             interpolate_str = self.interpolation
         format_string = self.__class__.__name__ + '(size={0}'.format(self.size)
