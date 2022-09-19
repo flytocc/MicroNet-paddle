@@ -16,13 +16,6 @@ from data import Mixup
 from util.model_ema import ExponentialMovingAverage as ModelEma
 
 
-def clear_grad_(optimizer: optim.Optimizer):
-    if isinstance(optimizer, paddle.fluid.optimizer.Optimizer):
-        optimizer.clear_gradients()
-    else:
-        optimizer.clear_grad()
-
-
 def train_one_epoch(model: nn.Layer, criterion: nn.Layer,
                     data_loader: Iterable, optimizer: optim.Optimizer,
                     epoch: int, loss_scaler,
@@ -41,7 +34,7 @@ def train_one_epoch(model: nn.Layer, criterion: nn.Layer,
     metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
 
     model.train()
-    clear_grad_(optimizer)
+    optimizer.clear_grad()
 
     loss_value_reduce = deque(maxlen=update_freq)
     header = 'Epoch: [{}]'.format(epoch)
@@ -80,7 +73,7 @@ def train_one_epoch(model: nn.Layer, criterion: nn.Layer,
                 optimizer.step()
 
         if (data_iter_step + 1) % update_freq == 0:
-            clear_grad_(optimizer)
+            optimizer.clear_grad()
             if model_ema is not None:
                 model_ema.update(model)
 

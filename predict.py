@@ -8,7 +8,7 @@ import paddle.nn.functional as F
 import util.misc as misc
 from util.datasets import build_transform
 
-import models
+from models import create_model
 
 
 parser = argparse.ArgumentParser(description='Paddle ImageNet training and evaluation script')
@@ -37,8 +37,7 @@ def main(args):
 
     preprocess = build_transform(is_train=False, args=args)
 
-    model = models.__dict__[args.model](
-        num_classes=args.num_classes)
+    model = create_model(args.model, num_classes=args.num_classes)
 
     misc.load_model(args, model)
 

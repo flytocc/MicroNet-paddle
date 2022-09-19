@@ -54,6 +54,20 @@ class ImageNetDataset(Dataset):
         return len(self.samples)
 
 
+class DatasetFolder(datasets.DatasetFolder):
+    _repr_indent = 4
+
+    def __repr__(self) -> str:
+        head = "Dataset " + self.__class__.__name__
+        body = [f"Number of datapoints: {self.__len__()}"]
+        if self.root is not None:
+            body.append(f"Root location: {self.root}")
+        if hasattr(self, "transform") and self.transform is not None:
+            body += [repr(self.transform)]
+        lines = [head] + [" " * self._repr_indent + line for line in body]
+        return "\n".join(lines)
+
+
 def build_dataset(is_train, args):
     if is_train and hasattr(args, 'cls_label_path_train') and args.cls_label_path_train:
         dataset = ImageNetDataset(args.data_dir, args.cls_label_path_train)
@@ -61,7 +75,7 @@ def build_dataset(is_train, args):
         dataset = ImageNetDataset(args.data_dir, args.cls_label_path_val)
     else:
         root = os.path.join(args.data_dir, args.train_split if is_train else args.val_split)
-        dataset = datasets.DatasetFolder(root)
+        dataset = DatasetFolder(root)
 
     return dataset
 

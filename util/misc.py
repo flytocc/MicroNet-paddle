@@ -303,15 +303,17 @@ def save_model(args, epoch, model_without_ddp, model_ema=None, optimizer=None, l
 
 
 def load_model(args, model_without_ddp, model_ema=None, optimizer=None, loss_scaler=None):
+    start_epoch = 0
     if args.resume:
         checkpoint = paddle.load(args.resume)
         model_without_ddp.set_state_dict(checkpoint['model'])
         print("Resume checkpoint %s" % args.resume)
-        if 'epoch' in checkpoint:
-            args.start_epoch = checkpoint['epoch'] + 1
+        if getattr(args, 'start_epoch', None) is None and 'epoch' in checkpoint:
+            start_epoch = checkpoint['epoch'] + 1
         if model_ema is not None and 'model_ema' in checkpoint:
             model_ema.set_state_dict(checkpoint['model_ema'])
         if optimizer is not None and 'optimizer' in checkpoint:
             optimizer.set_state_dict(checkpoint['optimizer'])
         if loss_scaler is not None and 'scaler' in checkpoint:
             loss_scaler.load_state_dict(checkpoint['scaler'])
+    return start_epoch

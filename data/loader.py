@@ -7,13 +7,12 @@
 # """
 import random
 from functools import partial
-from itertools import repeat
+from itertools import chain, repeat
 from typing import Callable
 
 import numpy as np
 
 import paddle
-from paddle.fluid.dataloader.collate import default_collate_fn
 from paddle.io import BatchSampler, DataLoader, DistributedBatchSampler, IterableDataset, get_worker_info
 
 from .transforms_factory import create_transform
@@ -30,14 +29,11 @@ def fast_collate(batch):
         # This branch 'deinterleaves' and flattens tuples of input tensors into one tensor ordered by position
         # such that all tuple of position n will end up in a paddle.split(tensor, batch_size) in nth position
         inner_tuple_size = len(batch[0][0])
-        flattened_batch_size = batch_size * inner_tuple_size
-        targets = paddle.zeros(flattened_batch_size, dtype=paddle.int64)
-        tensor = paddle.zeros((flattened_batch_size, *batch[0][0][0].shape), dtype=paddle.int64)
-        for i in range(batch_size):
-            assert len(batch[i][0]) == inner_tuple_size  # all input tensor tuples must be same length
-            for j in range(inner_tuple_size):
-                targets[i + j * batch_size] = batch[i][1]
-                tensor[i + j * batch_size] += paddle.to_tensor(batch[i][0][j], dtype=paddle.int64)
+        targets = paddle.to_tensor([b[1] for b in batch], dtype=paddle.int64)
+        targets = paddle.tile(targets, [inner_tuple_size]).flatten()
+        tensor = chain.from_iterable(zip(*[batch[i][0] for i in range(batch_size)]))
+        tensor = np.stack(list(tensor), axis=0)
+        tensor = paddle.to_tensor(tensor, dtype=paddle.uint8)
         return tensor, targets
     elif isinstance(batch[0][0], np.ndarray):
         targets = paddle.to_tensor([b[1] for b in batch], dtype=paddle.int64)
@@ -96,25 +92,25 @@ class PrefetchLoader:
             self.random_erasing = None
 
     def __iter__(self):
-        stream = paddle.device.cuda.Stream()
+        # stream = paddle.device.cuda.Stream()
         first = True
 
         for next_input, next_target in self.loader:
-            with paddle.device.cuda.stream_guard(stream):
-                if self.fp16:
-                    next_input = paddle.to_tensor(next_input, dtype=paddle.float16)
-                else:
-                    next_input = paddle.to_tensor(next_input, dtype=paddle.float32)
-                next_input = (next_input - self.mean) / self.std
-                if self.random_erasing is not None:
-                    next_input = self.random_erasing(next_input)
+            # with paddle.device.cuda.stream_guard(stream):
+            if self.fp16:
+                next_input = paddle.to_tensor(next_input, dtype=paddle.float16)
+            else:
+                next_input = paddle.to_tensor(next_input, dtype=paddle.float32)
+            next_input = (next_input - self.mean) / self.std
+            if self.random_erasing is not None:
+                next_input = self.random_erasing(next_input)
 
             if not first:
                 yield input, target
             else:
                 first = False
 
-            paddle.device.cuda.current_stream().wait_stream(stream)
+            # paddle.device.cuda.current_stream().wait_stream(stream)
             input = next_input
             target = next_target
 
@@ -238,7 +234,7 @@ def create_loader(
             batch_sampler = BatchSampler(dataset=dataset, batch_size=batch_size, shuffle=False, drop_last=False)
 
     if collate_fn is None:
-        collate_fn = fast_collate if use_prefetcher else default_collate_fn
+        collate_fn = fast_collate if use_prefetcher else None
 
     loader_class = DataLoader
     if use_multi_epochs_loader:

@@ -593,3 +593,8 @@ def micronet_m3(**kwargs):
                     out_ch=1024,
                     dropout_rate=0.1,
                     **kwargs)
+
+
+def create_model(model_name, **kwargs):
+    model = eval(model_name)(**kwargs)
+    return model

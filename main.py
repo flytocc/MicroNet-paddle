@@ -108,7 +108,7 @@ group.add_argument('--min_lr', type=float, default=1e-6, metavar='LR',
                     help='lower lr bound for cyclic schedulers that hit 0 (1e-5)')
 group.add_argument('--epochs', type=int, default=300, metavar='N',
                     help='number of epochs to train (default: 300)')
-group.add_argument('--start_epoch', default=0, type=int, metavar='N',
+group.add_argument('--start_epoch', type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 group.add_argument('--warmup_epochs', type=int, default=3, metavar='N',
                     help='epochs to warmup LR, if scheduler supports')
@@ -315,8 +315,8 @@ def main():
         raise NotImplementedError
     num_epochs = args.epochs + args.cooldown_epochs
 
-    misc.load_model(args, model_without_ddp, model_ema=model_ema,
-                    optimizer=optimizer, loss_scaler=loss_scaler)
+    start_epoch = misc.load_model(args, model_without_ddp, model_ema=model_ema,
+                                  optimizer=optimizer, loss_scaler=loss_scaler)
 
     # create the train and eval datasets
     dataset_train = build_dataset(is_train=True, args=args)
@@ -414,7 +414,7 @@ def main():
     print(f"Start training for {args.epochs} epochs + {args.cooldown_epochs} cooldown epochs")
     start_time = time.time()
 
-    for epoch in range(args.start_epoch, num_epochs):
+    for epoch in range(start_epoch, num_epochs):
         if args.distributed and hasattr(loader_train.batch_sampler, 'set_epoch'):
             loader_train.batch_sampler.set_epoch(epoch)
 
@@ -469,7 +469,7 @@ def main():
                 log_writer.update(log_stats)
                 log_writer.flush()
             with open(os.path.join(args.output, "log.txt"), mode="a", encoding="utf-8") as f:
-                f.write(json.dumps(log_stats) + "\n")
+                f.writelines([json.dumps(log_stats), "\n"])
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
