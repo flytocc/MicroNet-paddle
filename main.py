@@ -287,10 +287,10 @@ def main():
     apply_decay_param_fun = None
     if args.filter_bias_and_bn:
         # setup learning rate schedule and starting epoch
-        decay_skip = model.no_weight_decay() if hasattr(model, 'no_weight_decay') else set()
+        decay_skip = model_without_ddp.no_weight_decay() if hasattr(model_without_ddp, 'no_weight_decay') else set()
         # following timm: set wd as 0 for bias and norm layers
         decay_dict = {param.name: not (len(param.shape) == 1 or name.endswith(".bias") or name in decay_skip)
-                      for name, param in model.named_parameters()}
+                      for name, param in model_without_ddp.named_parameters()}
         apply_decay_param_fun = lambda n: decay_dict[n]
     clip_func = {'norm': nn.ClipGradByGlobalNorm, 'value': nn.ClipGradByValue}[args.clip_mode]
     optim_kwargs = dict(
