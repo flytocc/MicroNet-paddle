@@ -50,11 +50,9 @@
 
 您可以从[ImageNet 官网](https://image-net.org/)申请下载数据。
 
-| 模型         | epochs | top1 acc (参考精度) | (复现精度) | 权重                  \| 训练日志 |
-|:-----------:|:------:|:------------------:|:---------:|:-------------------------------:|
-| micronet_m0 | 600    | 46.6               | 46.6      | checkpoint-latest.pd \| log.txt |
-
-权重及训练日志下载地址：[百度网盘](https://pan.baidu.com/s/1v4_VEQU_vyHF9j70ipCiDA?pwd=k1pa)
+| 模型         | epochs | top1 acc (参考精度) | (复现精度) |
+|:-----------:|:------:|:------------------:|:---------:|
+| micronet_m0 | 600    | 46.6               | 46.3      |
 
 ## 3. 准备数据与环境
 
@@ -104,22 +102,21 @@ pip install -r requirements.txt
 * 单机多卡训练
 
 ```shell
-export CUDA_VISIBLE_DEVICES=0,1,2,3
-python -m paddle.distributed.launch --gpus="0,1,2,3" \
+python -m paddle.distributed.launch --gpus=0,1,2,3 \
     main.py \
     /path/to/imagenet/ \
-    --cls_label_path_train /path/to/train_list.txt \
-    --cls_label_path_val /path/to/val_list.txt \
+    # --cls_label_path_train /path/to/train_list.txt \
+    # --cls_label_path_val /path/to/val_list.txt \
     --model micronet_m0 \
-    --batch_size 512 \
+    --batch_size 128 \
     --interpolation bilinear \
-    --weight_decay 3e-5 \
-    --lr 0.2 --min_lr 0 \
+    --weight_decay 3e-5 --no_filter_bias_and_bn \
+    --lr 0.2 --warmup_lr 0 --min_lr 0 \
     --epochs 600 --warmup_epochs 0 --cooldown_epochs 0 \
     --reprob 0 --smoothing 0 \
+    --use_multi_epochs_loader \
     --num_workers 8 \
-    --output output/micronet_m0/ \
-    --dist_eval
+    --output output/
 ```
 
 ps: 如果未指定`cls_label_path_train`/`cls_label_path_val`，会读取`data_dir`下train/val里的图片作为train-set/val-set。
@@ -137,9 +134,9 @@ ps: 如果未指定`cls_label_path_train`/`cls_label_path_val`，会读取`data_
 ``` shell
 python eval.py \
     /path/to/imagenet/ \
-    --cls_label_path_val /path/to/val_list.txt \
+    # --cls_label_path_val /path/to/val_list.txt \
     --model micronet_m0 \
-    --batch_size 512 \
+    --batch_size 256 \
     --interpolation bilinear \
     --resume $TRAINED_MODEL
 ```
@@ -177,8 +174,8 @@ python export_model.py \
 
 python infer.py \
     --interpolation bilinear \
-    --model_file /path/to/save/export_model/output/model.pdmodel \
-    --params_file /path/to/save/export_model/output/model.pdiparams \
+    --model_file /path/to/save/export_model/model.pdmodel \
+    --params_file /path/to/save/export_model/model.pdiparams \
     --input_file ./demo/ILSVRC2012_val_00020010.JPEG
 ```
 
